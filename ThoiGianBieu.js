@@ -316,13 +316,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const scheduleBody = document.getElementById('schedule-body');
         if (!scheduleBody) return;
         scheduleBody.innerHTML = '';
-        const timeSlotEntries = Object.entries(appData.schedule.timeConfig);
+
+        // **FIX**: Define a fixed order for time slots to prevent reordering issues from Firebase data.
+        const timeSlotOrder = ['sang', 'chieu', 'toi'];
         const days = Object.keys(appData.schedule.dayData);
 
-        timeSlotEntries.forEach(([slotKey, slotConfig], index) => {
+        timeSlotOrder.forEach((slotKey, index) => {
+            const slotConfig = appData.schedule.timeConfig[slotKey];
+            if (!slotConfig) return; // Skip if for some reason this slot doesn't exist in the data
+
             const row = document.createElement('tr');
 
-            const isLastRow = index === timeSlotEntries.length - 1;
+            const isLastRow = index === timeSlotOrder.length - 1;
             const cornerClass = isLastRow ? 'rounded-bl-xl' : '';
 
             row.innerHTML = `<td class="transparent-cell p-3 font-semibold border-b ${cornerClass}">${slotConfig.name}<br><span class="text-xs text-gray-500">${slotConfig.time}</span></td>`;
