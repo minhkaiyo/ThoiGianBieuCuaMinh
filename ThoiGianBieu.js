@@ -1414,18 +1414,19 @@ document.addEventListener('DOMContentLoaded', function () {
         setDate();
     }
 
-    const authContainer = document.getElementById('auth-container');
-    if (authContainer) {
-        const props = {
-            onLogin: loadUserData,
-            onLogout: () => { window.location.reload(); }
-        };
+    // const authContainer = document.getElementById('auth-container');
+    // if (authContainer) {
+    //     const props = {
+    //         onLogin: loadUserData,
+    //         onLogout: () => { window.location.reload(); }
+    //     };
         
-        const root = ReactDOM.createRoot(authContainer);
-        root.render(React.createElement(AuthComponent, props)); // <= Đã thêm props vào đây
-    }
+    //     const root = ReactDOM.createRoot(authContainer);
+    //     root.render(React.createElement(AuthComponent, props)); // <= Đã thêm props vào đây
+    // }
 
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
 
     renderAll();
 });
+
