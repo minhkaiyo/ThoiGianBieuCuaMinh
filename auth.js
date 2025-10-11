@@ -76,7 +76,7 @@ function AuthComponent({ user }) {
         e.preventDefault();
         try {
             await sendPasswordResetEmail(auth, email);
-            showMessage('success', `Đã gửi email khôi phục tới ${email}.`);
+            showMessage('success', `Nếu tài khoản của bạn tồn tại, một email khôi phục đã được gửi đi.`);
         } catch (error) {
             showMessage('error', 'Lỗi: Không thể gửi email khôi phục.');
             console.error("Lỗi quên mật khẩu:", error);
@@ -145,7 +145,7 @@ function AuthComponent({ user }) {
             ),
 
             activeTab === 'forgot' && React.createElement('form', { onSubmit: handlePasswordReset, className: 'space-y-4' },
-                React.createElement('p', { className: 'text-sm text-gray-600' }, 'Nhập email để nhận link khôi phục mật khẩu.'),
+                React.createElement('p', { className: 'text-sm text-gray-600' }, 'Nhập email để nhận link khôi phục mật khẩu(Check thư spam, thư rác trong gmail).'),
                 React.createElement('input', { type: 'email', placeholder: 'Email', value: email, onChange: e => setEmail(e.target.value), required: true, className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500' }),
                 React.createElement('button', { type: 'submit', className: 'w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition' }, 'Gửi email khôi phục')
             ),
