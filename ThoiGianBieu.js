@@ -1420,9 +1420,9 @@ document.addEventListener('DOMContentLoaded', function () {
             onLogin: loadUserData,
             onLogout: () => { window.location.reload(); }
         };
-
+        
         const root = ReactDOM.createRoot(authContainer);
-        root.render(React.createElement(AuthComponent, props));
+        root.render(React.createElement(AuthComponent, props)); // <= Đã thêm props vào đây
     }
 
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
