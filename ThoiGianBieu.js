@@ -65,6 +65,7 @@ let currentEditingDayKey = null;
 let currentEditingContext = null;
 let currentEditingSlotKey = null;
 let timeChartInstance = null;
+let originalAppDataState = null;
 
 const chartThemes = {
     vibrant: {
@@ -97,7 +98,6 @@ const chartThemes = {
 let blurTimer = null;
 const BLUR_TIMEOUT = 7000;
 
-// Khi chuột rời khỏi cửa sổ trình duyệt
 document.addEventListener('mouseleave', () => {
     if (blurTimer) clearTimeout(blurTimer);
 
@@ -133,6 +133,7 @@ document.addEventListener('DOMContentLoaded', function () {
         renderAll();
         setupThemeControls();
         setupQuoteRotator();
+        setupAIChat();
         const minLoadingTime = 1500;
 
         setTimeout(() => {
@@ -215,6 +216,7 @@ document.addEventListener('DOMContentLoaded', function () {
         attachDynamicEventListeners();
         setupOnlineClock();
         renderFooter();
+        // setupAIChat(); 
     }
 
     function renderHeaderAndStats() {
@@ -287,6 +289,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     function renderSchedule() {
+        const scheduleSection = document.getElementById('schedule-section');
+        const header = scheduleSection?.querySelector('.flex.justify-between');
+        if (header && !header.querySelector('#reset-main-schedule-btn')) {
+            header.innerHTML = `
+                    <h2 class="heading-font text-2xl font-bold text-gray-800">📚 Thời Khóa Biểu</h2>
+                    <div class="flex items-center gap-2">
+                        <button id="reset-main-schedule-btn" class="p-1.5 rounded-full text-red-500 hover:bg-red-100 transition" title="Reset toàn bộ lịch trình trong bảng này">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.899 2.186A7.002 7.002 0 0112 15.052a1 1 0 11-1.414 1.414A9.002 9.002 0 0019 9a9.002 9.002 0 00-8-8.947V2a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                <path d="M4.053 7.053A1 1 0 014 6a1 1 0 011-1h2.053a1 1 0 110 2H5a1 1 0 01-.947-.646z" />
+                            </svg>
+                        </button>
+                        <button id="toggle-detailed-schedule" class="text-3xl font-bold text-purple-600 hover:text-indigo-600 transition-transform duration-300" title="Xem/Ẩn chi tiết từng ngày">+</button>
+                    </div>
+                `;
+        }
         renderScheduleHead();
 
         const scheduleBody = document.getElementById('schedule-body');
@@ -652,6 +670,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+
     function openEditModal(dayKey) {
         currentEditingDayKey = dayKey;
         const modal = document.getElementById('edit-modal');
@@ -662,7 +681,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const dayData = appData.schedule.dayData[dayKey];
         const subjectOptions = Object.entries(appData.subjects).map(([key, value]) => `<option value="${key}">${value.name}</option>`).join('');
         const activityOptions = Object.entries(activityTypes).map(([key, value]) => `<option value="${key}">${value}</option>`).join('');
-
         const timeSlotOrder = ['sang', 'chieu', 'toi'];
 
         timeSlotOrder.forEach(slotKey => {
@@ -685,7 +703,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             `;
         });
-        Object.entries(appData.schedule.timeConfig).forEach
+        // Dòng code lỗi đã được xóa khỏi đây
         modal.classList.remove('hidden');
     }
 
@@ -870,18 +888,16 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('add-new-strategy-btn').parentElement.insertAdjacentHTML('beforebegin', newFormHTML);
     }
 
+    // ĐOẠN MÃ MỚI để thay thế cho 7 hàm save...Changes cũ
+
     function saveSubjectChanges() {
         const newSubjects = {};
-        const deletedKeys = [];
         document.querySelectorAll('#modal-body [data-subject-key]').forEach(subjectEl => {
             const key = subjectEl.dataset.subjectKey;
-            if (subjectEl.style.display === 'none') {
-                if (!key.startsWith('new-')) { deletedKeys.push(key); }
-                return;
-            }
             const name = subjectEl.querySelector('.subject-name').value.trim();
             if (!name) return;
-            const newKey = key.startsWith('new-') ? name.split(' ').map(word => word[0] || '').join('').toUpperCase() + Math.floor(Math.random() * 100) : key;
+            const newKey = key.startsWith('new-') ? name.replace(/\s/g, '') + Date.now().toString().slice(-3) : key;
+
             newSubjects[newKey] = {
                 name: name,
                 weeklyHours: parseFloat(subjectEl.querySelector('.subject-hours').value) || 0,
@@ -891,23 +907,81 @@ document.addEventListener('DOMContentLoaded', function () {
             };
         });
         appData.subjects = newSubjects;
-        if (deletedKeys.length > 0) {
-            Object.keys(appData.schedule.dayData).forEach(dayKey => {
-                Object.keys(appData.schedule.dayData[dayKey]).forEach(slotKey => {
-                    appData.schedule.dayData[dayKey][slotKey].forEach(activity => {
-                        if (activity.subjects) {
-                            activity.subjects = activity.subjects.filter(subKey => !deletedKeys.includes(subKey));
-                        }
-                    });
+        saveAndClose();
+    }
+
+    function saveTimeAllocationChanges() {
+        appData.config.totalWeeklyHoursTarget = parseFloat(document.getElementById('total-hours-target').value) || 0;
+        document.querySelectorAll('.time-alloc-input').forEach(input => {
+            const key = input.dataset.subjectKey;
+            if (appData.subjects[key]) {
+                appData.subjects[key].weeklyHours = parseFloat(input.value) || 0;
+            }
+        });
+        saveAndClose();
+    }
+
+    function saveStrategiesChanges() {
+        const newStrategies = [];
+        document.querySelectorAll('#modal-body [data-strategy-index]').forEach(el => {
+            const title = el.querySelector('.strategy-title').value.trim();
+            if (title) {
+                newStrategies.push({
+                    emoji: el.querySelector('.strategy-emoji').value,
+                    title: title,
+                    description: el.querySelector('.strategy-desc').value.trim()
                 });
+            }
+        });
+        appData.studyStrategies = newStrategies;
+        saveAndClose();
+    }
+
+    function saveChecklistChanges() {
+        const dailyText = document.getElementById('daily-checklist-input').value;
+        const weeklyText = document.getElementById('weekly-checklist-input').value;
+
+        const createNewList = (newText, oldList = []) => {
+            const newItems = newText.split('\n').map(item => item.trim()).filter(Boolean);
+            return newItems.map(text => {
+                const oldItem = oldList.find(item => item.text === text);
+                return { text: text, checked: oldItem ? oldItem.checked : false };
             });
+        };
+
+        appData.checklist.daily = createNewList(dailyText, appData.checklist.daily);
+        appData.checklist.weekly = createNewList(weeklyText, appData.checklist.weekly);
+        saveAndClose();
+    }
+
+    function saveDatesChanges() {
+        const newStartDate = document.getElementById('start-date-input').value;
+        const newGoalDate = document.getElementById('goal-date-input').value;
+        if (newStartDate && newGoalDate) {
+            appData.config.startDate = newStartDate;
+            appData.config.goalDate = newGoalDate;
         }
-        closeModal();
-        renderHeaderAndStats();
-        renderOtherSections();
-        renderTimeAllocationChart();
-        attachEventListeners();
-        saveDataToFirebase();
+        saveAndClose();
+    }
+
+    function saveGoalChanges() {
+        const modal = document.getElementById('edit-modal');
+        const selectedGoal = modal.dataset.selectedGoal;
+        if (selectedGoal) {
+            appData.config.goal = selectedGoal;
+        }
+        saveAndClose();
+    }
+
+    function saveNotesChanges() {
+        const deadlinesText = document.getElementById('deadlines-notes').value;
+        const resourcesText = document.getElementById('resources-notes').value;
+        const tipsText = document.getElementById('tips-notes').value;
+
+        appData.importantNotes.deadlines = deadlinesText.split('\n').map(item => item.trim()).filter(Boolean);
+        appData.importantNotes.resources = resourcesText.split('\n').map(item => item.trim()).filter(Boolean);
+        appData.importantNotes.tips = tipsText.split('\n').map(item => item.trim()).filter(Boolean);
+        saveAndClose();
     }
 
     function saveTimeAllocationChanges() {
@@ -1188,8 +1262,19 @@ document.addEventListener('DOMContentLoaded', function () {
         document.body.addEventListener('change', handleChecklistChange);
     }
 
+
     function handleBodyClick(e) {
-        // Stat Cards
+        if (e.target.closest('#reset-main-schedule-btn')) {
+            if (confirm('⚠️ Bạn có chắc muốn xóa TOÀN BỘ lịch trình trong bảng này không? Hành động này không thể hoàn tác.')) {
+                Object.keys(appData.schedule.dayData).forEach(dayKey => {
+                    appData.schedule.dayData[dayKey] = {};
+                });
+                saveAndClose();
+            }
+            return;
+        }
+
+
         if (e.target.closest('#subjects-stat-card')) { e.preventDefault(); openSubjectsEditModal(); }
         if (e.target.closest('#hours-stat-card')) { e.preventDefault(); openTimeAllocationModal(); }
         if (e.target.closest('#week-stat-card')) { e.preventDefault(); openDatesEditModal(); }
@@ -1219,6 +1304,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (modalType === 'checklist') openChecklistEditModal();
             if (modalType === 'notes') openNotesEditModal();
         }
+
+        // === BẮT ĐẦU PHẦN BỔ SUNG ===
+        // Thêm lại logic cho nút edit của từng ngày trong bảng chi tiết
+        const editDayBtn = e.target.closest('.edit-day-btn');
+        if (editDayBtn) {
+            const dayKey = editDayBtn.dataset.dayKey;
+            openEditModal(dayKey); // <-- Gọi hàm openEditModal ở đây
+        }
+        // === KẾT THÚC PHẦN BỔ SUNG ===
+
         const scheduleCell = e.target.closest('.schedule-cell');
         if (scheduleCell) {
             const dayKey = scheduleCell.dataset.dayKey;
@@ -1228,45 +1323,44 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Edit Buttons trong Lịch trình chi tiết
         const editDayCardBtn = e.target.closest('.edit-day-card-btn');
         if (editDayCardBtn) {
             openDetailedDayModal(editDayCardBtn.dataset.dayKey);
         }
 
-        // Nút Thu gọn lịch trình chi tiết
         const collapseBtn = e.target.closest('#collapse-detailed-schedule-btn');
         if (collapseBtn) {
             const scheduleSection = document.getElementById('schedule-section');
             const detailedContainer = document.getElementById('detailed-schedule-container');
             const toggleBtn = document.getElementById('toggle-detailed-schedule');
 
-            detailedContainer.classList.remove('expanded');
-            toggleBtn.classList.remove('toggled');
-            toggleBtn.innerHTML = '+';
-            scheduleSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (toggleBtn) {
+                toggleBtn.classList.remove('toggled');
+                toggleBtn.innerHTML = '+';
+            }
+            if (detailedContainer) {
+                detailedContainer.classList.remove('expanded');
+            }
+
+            scheduleSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
-        // Toggle Detailed Schedule (ĐÃ SỬA LỖI)
         const toggleBtn = e.target.closest('#toggle-detailed-schedule');
         if (toggleBtn) {
             const container = document.getElementById('detailed-schedule-container');
             const isExpanding = !container.classList.contains('expanded');
-
-            // Bật/tắt các class để kích hoạt animation
             toggleBtn.classList.toggle('toggled');
-            container.classList.toggle('expanded');
 
             if (isExpanding) {
                 toggleBtn.innerHTML = '&times;';
-                // 1. Render nội dung vào div
+                container.classList.add('expanded');
                 renderDetailedScheduleContent();
-                // 2. Chờ một chút để animation bắt đầu, sau đó mới cuộn
                 setTimeout(() => {
                     container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }, 200);
             } else {
                 toggleBtn.innerHTML = '+';
+                container.classList.remove('expanded');
             }
         }
     }
@@ -1377,33 +1471,45 @@ document.addEventListener('DOMContentLoaded', function () {
         renderDetailedScheduleContent();
     }
 
+
     function renderDetailedScheduleContent() {
         const detailedContainer = document.getElementById('detailed-schedule-container');
         if (!detailedContainer) return;
 
-        detailedContainer.innerHTML = '';
+        if (!detailedContainer.classList.contains('expanded')) {
+            detailedContainer.innerHTML = '';
+            return;
+        }
 
-        const dayNames = { T2: 'Thứ 2', T3: 'Thứ 3', T4: 'Thứ 4', T5: 'Thứ 5', T6: 'Thứ 6', T7: 'Thứ 7', CN: 'Chủ Nhật' };
-        const detailedCardsHTML = Object.entries(appData.detailedSchedule).map(([dayKey, activities]) => `
-            <div class="day-card">
-                <div class="flex justify-between items-center mb-3 pb-3 border-b border-white/20">
-                    <h4 class="heading-font text-lg font-bold text-purple-700">${dayNames[dayKey]}</h4>
-                    <button class="edit-day-card-btn text-sm" data-day-key="${dayKey}" title="Chỉnh sửa chi tiết">✏️</button>
-                </div>
-                <ul class="day-schedule-list space-y-2">
-                    ${activities.map(act => `
-                        <li class="flex items-start">
-                            <span class="time">${act.time}</span>
-                            <span class="activity flex-1">${act.activity}</span>
-                            <span class="category-pill category-${act.category.toLowerCase().replace(/ /g, '-')}">${act.category}</span>
-                        </li>
-                    `).join('')}
-                </ul>
-            </div>
-        `).join('');
+        const detailedCardsHTML = DAYS_CONFIG.map(({ key, name }) => {
+            const activities = appData.detailedSchedule[key] || [];
+            const activitiesHTML = activities.length > 0
+                ? activities.map(act => `
+                    <li class="flex items-start">
+                        <span class="time">${act.time}</span>
+                        <span class="activity flex-1">${act.activity}</span>
+                        <span class="category-pill category-${act.category.toLowerCase().replace(/ /g, '-')}">${act.category}</span>
+                    </li>`).join('')
+                : '<li><p class="text-xs text-gray-500 italic p-2">Chưa có lịch trình chi tiết.</p></li>';
 
-        const collapseButtonHTML = `
-            <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center mt-4">
+            return `
+                <div class="day-card">
+                    <div class="flex justify-between items-center mb-3 pb-3 border-b border-white/20">
+                        <h4 class="heading-font text-lg font-bold text-purple-700">${name}</h4>
+                        <button class="edit-day-card-btn text-sm" data-day-key="${key}" title="Chỉnh sửa chi tiết">✏️</button>
+                    </div>
+                    <ul class="day-schedule-list space-y-2">${activitiesHTML}</ul>
+                </div>`;
+        }).join('');
+
+        const controlsHTML = `
+            <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center mt-4 flex justify-center items-center gap-4">
+                <button id="reset-detailed-schedule-btn" class="p-2 rounded-full text-red-500 hover:bg-red-100 transition" title="Reset toàn bộ lịch trình chi tiết">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.899 2.186A7.002 7.002 0 0112 15.052a1 1 0 11-1.414 1.414A9.002 9.002 0 0019 9a9.002 9.002 0 00-8-8.947V2a1 1 0 01-1-1z" clip-rule="evenodd" />
+                        <path d="M4.053 7.053A1 1 0 014 6a1 1 0 011-1h2.053a1 1 0 110 2H5a1 1 0 01-.947-.646z" />
+                    </svg>
+                </button>
                 <button id="collapse-detailed-schedule-btn" class="px-4 py-2 bg-white/60 text-purple-700 font-semibold rounded-lg hover:bg-white/90 transition-all duration-300 shadow-md flex items-center gap-2 mx-auto backdrop-blur-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" /></svg>
                     Thu Gọn
@@ -1411,11 +1517,8 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
         `;
 
-        if (!detailedContainer.classList.contains('grid')) {
-            detailedContainer.className += ' grid grid-cols-1 md:grid-cols-2 lg:col-span-3 gap-4';
-        }
-
-        detailedContainer.innerHTML = detailedCardsHTML + collapseButtonHTML;
+        detailedContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:col-span-3 gap-4 expanded';
+        detailedContainer.innerHTML = detailedCardsHTML + controlsHTML;
     }
 
     function setDynamicBackground() {
@@ -1937,6 +2040,220 @@ document.addEventListener('DOMContentLoaded', function () {
         const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
         setInterval(fetchAndDisplayQuote, TEN_MINUTES_IN_MS);
     }
+
+
+
+
+    // ============================================================
+    // ==== BẮT ĐẦU KHỐI CODE MỚI CHO TRỢ LÝ HỌC TẬP AI ====
+    // ============================================================
+
+    /**
+     * Hàm tiện ích để trộn sâu (deep merge) hai đối tượng.
+     * Nó sẽ ghi đè các thuộc tính từ `source` vào `target`.
+     */
+    function mergeDeep(target, source) {
+        const isObject = (obj) => obj && typeof obj === 'object';
+
+        if (!isObject(target) || !isObject(source)) {
+            return source;
+        }
+
+        Object.keys(source).forEach(key => {
+            const targetValue = target[key];
+            const sourceValue = source[key];
+
+            if (Array.isArray(targetValue) && Array.isArray(sourceValue)) {
+                target[key] = targetValue.concat(sourceValue);
+            } else if (isObject(targetValue) && isObject(sourceValue)) {
+                target[key] = mergeDeep(Object.assign({}, targetValue), sourceValue);
+            } else {
+                target[key] = sourceValue;
+            }
+        });
+
+        return target;
+    }
+
+    function createSlimAppDataForAI(fullData) {
+        const slimData = {
+            config: {
+                goal: fullData.config.goal,
+                totalWeeklyHoursTarget: fullData.config.totalWeeklyHoursTarget,
+            },
+            subjects: {},
+            schedule: {
+                timeConfig: fullData.schedule.timeConfig,
+                dayData: fullData.schedule.dayData
+            }
+        };
+
+        for (const key in fullData.subjects) {
+            const subject = fullData.subjects[key];
+            slimData.subjects[key] = {
+                name: subject.name,
+                weeklyHours: subject.weeklyHours,
+                priority: subject.priority
+            };
+        }
+
+        return slimData;
+    }
+
+    async function getAIPlan(userMessage, previousAttemptFailed = false) {
+        // ĐÃ SỬA LỖI: Xóa dấu gạch chéo "/" ở cuối URL để đảm bảo tính tương thích.
+        const WORKER_URL = 'https://thoigianbieu-ai-proxy.minhkaiyo1.workers.dev';
+
+        try {
+            // ĐÃ TỐI ƯU HÓA: Tạo một phiên bản dữ liệu rút gọn trước khi gửi đi.
+            const slimDataForAI = createSlimAppDataForAI(appData);
+
+            const response = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userMessage: userMessage,
+                    // Chỉ gửi dữ liệu đã được rút gọn
+                    appData: slimDataForAI,
+                    previousAttemptFailed: previousAttemptFailed
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                // Cung cấp thông báo lỗi chi tiết hơn
+                const errorMessage = data.error ? data.error.message || data.error : 'Lỗi không xác định từ máy chủ proxy.';
+                throw new Error(errorMessage);
+            }
+
+            if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+                throw new Error('Phản hồi từ AI không hợp lệ hoặc không có nội dung.');
+            }
+
+            const aiResponseText = data.candidates[0].content.parts[0].text;
+
+            // Thêm một bước kiểm tra để đảm bảo AI trả về JSON hợp lệ
+            try {
+                // Loại bỏ các ký tự markdown ```json và ``` mà AI có thể trả về
+                const cleanedJsonString = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                return JSON.parse(cleanedJsonString);
+            } catch (parseError) {
+                console.error("Lỗi phân tích JSON từ AI:", aiResponseText);
+                throw new Error('AI đã trả về một định dạng không hợp lệ.');
+            }
+
+        } catch (error) {
+            console.error("Lỗi khi gọi AI qua Cloudflare Worker:", error);
+            alert("Trợ lý AI đang gặp sự cố. Chi tiết: " + error.message);
+            return null;
+        }
+    }
+
+    function showFeedbackBar(message, userMessage) {
+        const bar = document.getElementById('ai-feedback-bar');
+        const likeBtn = document.getElementById('ai-like-btn');
+        const dislikeBtn = document.getElementById('ai-dislike-btn');
+
+        document.getElementById('ai-feedback-message').textContent = message;
+        bar.classList.remove('hidden');
+
+        // Gỡ bỏ listener cũ để tránh gọi nhiều lần
+        const newLikeBtn = likeBtn.cloneNode(true);
+        likeBtn.parentNode.replaceChild(newLikeBtn, likeBtn);
+
+        const newDislikeBtn = dislikeBtn.cloneNode(true);
+        dislikeBtn.parentNode.replaceChild(newDislikeBtn, dislikeBtn);
+
+        newLikeBtn.onclick = () => {
+            saveDataToFirebase();
+            originalAppDataState = null;
+            bar.classList.add('hidden');
+            // Cập nhật tin nhắn trong chatbox
+            addMessageToChatbox("Tuyệt vời! Kế hoạch đã được lưu.", "ai");
+        };
+
+        newDislikeBtn.onclick = async () => {
+            if (originalAppDataState) {
+                appData = originalAppDataState; // Hoàn tác thay đổi
+                originalAppDataState = null;
+                renderAll();
+            }
+            bar.classList.add('hidden');
+            addMessageToChatbox("Rất tiếc, tôi sẽ thử lại một phương án khác.", "ai");
+
+            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('loading-text').textContent = 'AI đang suy nghĩ lại...';
+
+            const aiSuggestedChanges = await getAIPlan(userMessage, true);
+
+            document.getElementById('loading-overlay').style.display = 'none';
+
+            if (aiSuggestedChanges) {
+                originalAppDataState = JSON.parse(JSON.stringify(appData));
+                appData = mergeDeep(appData, aiSuggestedChanges);
+                renderAll();
+                showFeedbackBar("Đây là phương án khác. Bạn thấy sao?", userMessage);
+            }
+        };
+    }
+
+    function addMessageToChatbox(text, sender) {
+        const messagesContainer = document.getElementById('ai-chat-messages');
+        const messageDiv = document.createElement('div');
+        // Thêm một class đặc biệt cho tin nhắn chờ để dễ dàng xóa đi sau này
+        if (sender === 'ai-typing') {
+            messageDiv.className = `chat-message ai-typing-message`;
+        } else {
+            messageDiv.className = `chat-message ${sender}-message`;
+        }
+        messageDiv.textContent = text;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function setupAIChat() {
+        const trigger = document.getElementById('ai-chat-trigger');
+        const windowEl = document.getElementById('ai-chat-window');
+        const input = document.getElementById('ai-chat-input');
+
+        trigger.addEventListener('click', () => {
+            windowEl.classList.toggle('hidden');
+            if (!windowEl.classList.contains('hidden')) {
+                input.focus();
+            }
+        });
+
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && input.value.trim() !== '') {
+                const userMessage = input.value.trim();
+                addMessageToChatbox(userMessage, "user");
+                input.value = '';
+
+
+                addMessageToChatbox("Đang xử lý...", "ai-typing");
+
+                const aiSuggestedChanges = await getAIPlan(userMessage);
+
+                const typingMessage = document.querySelector('.ai-typing-message');
+                if (typingMessage) {
+                    typingMessage.remove();
+                }
+
+                if (aiSuggestedChanges) {
+                    originalAppDataState = JSON.parse(JSON.stringify(appData));
+                    appData = mergeDeep(appData, aiSuggestedChanges);
+                    renderAll();
+
+                    showFeedbackBar("AI đã cập nhật kế hoạch. Bạn thấy sao?", userMessage);
+                    windowEl.classList.add('hidden');
+                } else {
+                    addMessageToChatbox("Rất tiếc, đã có lỗi xảy ra. Vui lòng thử lại.", "ai");
+                }
+            }
+        });
+    }
+
 
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
 });
