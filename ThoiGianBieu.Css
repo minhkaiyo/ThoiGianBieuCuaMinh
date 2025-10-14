@@ -1956,3 +1956,94 @@
         .quote-updating {
             opacity: 0;
         }
+
+        #ai-feedback-section {
+            transition: all 0.3s ease-in-out;
+        }
+
+        .feedback-btn.selected {
+            background-color: #6366f1;
+            /* Màu chàm */
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .night-bg .feedback-btn.selected {
+            background-color: #818cf8;
+            /* Màu chàm sáng hơn */
+            color: #1f2937;
+        }
+
+        .chat-message {
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+
+        .ai-message {
+            background-color: #e9d5ff;
+            align-self: flex-start;
+        }
+
+        .user-message {
+            background-color: #ffffff;
+            align-self: flex-end;
+        }
+
+        #ai-chat-messages {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes slide-up {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .animate-slide-up {
+            animation: slide-up 0.5s ease-out forwards;
+        }
+
+        .ai-typing-message {
+            background-color: #f3e8ff;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .night-bg #ai-chat-window {
+            background-color: rgba(26, 32, 44, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .night-bg #ai-chat-window .font-bold {
+            color: #E2E8F0;
+        }
+
+        .night-bg #ai-chat-input {
+            background-color: #2D3748;
+            color: #F7FAFC;
+            border-color: #4A5568;
+        }
+
+        .night-bg .chat-message.ai-message,
+        .night-bg .chat-message.ai-typing-message {
+            background-color: #4A5568;
+            /* Nền tin nhắn của AI */
+            color: #E2E8F0;
+            /* Chữ tin nhắn của AI */
+        }
+
+        .night-bg .chat-message.user-message {
+            background-color: #553C9A;
+            /* Nền tin nhắn người dùng */
+            color: #FFFFFF;
+            /* Chữ tin nhắn người dùng */
+        }
