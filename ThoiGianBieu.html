@@ -201,6 +201,35 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="ThoiGianBieu.js"></script>
 
+
+    <div id="ai-chat-widget" class="fixed bottom-5 right-5 z-[100]">
+        <button id="ai-chat-trigger"
+            class="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full text-white text-3xl shadow-lg flex items-center justify-center transform hover:scale-110 transition-transform duration-300">🤖</button>
+        <div id="ai-chat-window"
+            class="hidden absolute bottom-20 right-0 w-80 bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl glass-card overflow-hidden">
+            <div class="p-4 border-b font-bold text-gray-800 bg-white/50">Trợ lý học tập AI</div>
+            <div id="ai-chat-messages" class="p-4 h-64 overflow-y-auto">
+                <div class="chat-message ai-message">Chào bạn, tôi có thể giúp gì trong việc lập kế hoạch học tập?</div>
+            </div>
+            <div class="p-2 border-t bg-white/50">
+                <input type="text" id="ai-chat-input"
+                    class="w-full p-2 border-gray-300 border rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Ví dụ: Lên lịch học cho tuần này...">
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-feedback-bar"
+        class="hidden fixed bottom-5 inset-x-5 z-[110] bg-gray-800 text-white p-4 rounded-xl shadow-lg flex justify-between items-center animate-slide-up">
+        <p id="ai-feedback-message" class="font-semibold"></p>
+        <div class="flex gap-4">
+            <button id="ai-dislike-btn"
+                class="text-3xl transform hover:scale-125 transition-transform duration-200">👎</button>
+            <button id="ai-like-btn"
+                class="text-3xl transform hover:scale-125 transition-transform duration-200">👍</button>
+        </div>
+    </div>
+
 </body>
 
 </html>
