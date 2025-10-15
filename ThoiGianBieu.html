@@ -157,41 +157,11 @@
         <button id="theme-reset-btn">Tự động theo thời gian</button>
     </div>
 
+    <div id="help-modal" class="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 hidden">
+        <div class="help-modal-content w-full max-w-3xl glass-help-modal rounded-2xl p-6 relative">
+            <button id="close-help-modal-btn" class="absolute top-4 right-4 text-2xl">&times;</button>
 
-    <div id="help-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[150]">
-        <div id="help-modal-content" class="glass-help-modal rounded-2xl p-6 w-full max-w-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="heading-font text-2xl font-bold">Hướng Dẫn Sử Dụng</h3>
-                <button id="close-help-modal-btn" class="text-3xl hover:text-red-500">&times;</button>
-            </div>
-            <div class="help-content-body max-h-[70vh] overflow-y-auto pr-2 space-y-4">
-                <div>
-                    <h4 class="font-bold text-lg">✏️ Chỉnh Sửa Nhanh</h4>
-                    <p class="text-sm">Bạn có thể nhấp trực tiếp vào <strong>từng ô</strong> trong Thời Khóa Biểu để
-                        chỉnh sửa nhanh hoạt động cho buổi đó.</p>
-                </div>
-                <div>
-                    <h4 class="font-bold text-lg">➕ Thời khóa biểu chi tiết</h4>
-                    <p class="text-sm">Nhấp vào dấu <strong>+</strong> ở góc trên bên phải thời khóa biểu để mở chi tiết
-                        hơn</p>
-                </div>
-                <div>
-                    <h4 class="font-bold text-lg">📊 Các Thẻ Thống Kê</h4>
-                    <p class="text-sm">Nhấp vào các thẻ <strong>"Môn học"</strong>, <strong>"Giờ/tuần"</strong>,
-                        <strong>"Tuần học"</strong>, và <strong>"Mục tiêu"</strong> ở đầu trang để chỉnh sửa thông tin
-                        tổng quan của kỳ học.
-                    </p>
-                </div>
-                <div>
-                    <h4 class="font-bold text-lg">➕ Thêm Nhiều Hoạt Động</h4>
-                    <p class="text-sm">Trong bảng chỉnh sửa của mỗi ô, nhấn nút "<strong>＋ Thêm hoạt động</strong>" để
-                        thêm nhiều lịch trình khác nhau vào cùng một buổi (ví dụ: vừa đi học, vừa làm thêm).</p>
-                </div>
-                <div>
-                    <h4 class="font-bold text-lg">🎨 Tùy Chỉnh Giao Diện</h4>
-                    <p class="text-sm">Sử dụng nút <strong>🎨</strong> ở góc dưới bên trái để thay đổi giao diện nền
-                        (Ngày / Đêm) hoặc để chế độ tự động theo thời gian thực.</p>
-                </div>
+            <div id="help-content-container" class="mt-8">
             </div>
         </div>
     </div>
@@ -201,7 +171,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="ThoiGianBieu.js"></script>
 
-
     <div id="ai-chat-widget" class="fixed bottom-5 right-5 z-[100]">
         <button id="ai-chat-trigger"
             class="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full text-white text-3xl shadow-lg flex items-center justify-center transform hover:scale-110 transition-transform duration-300">🤖</button>
@@ -209,8 +178,9 @@
             class="hidden absolute bottom-20 right-0 w-80 bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl glass-card overflow-hidden">
             <div class="p-4 border-b font-bold text-gray-800 bg-white/50">Trợ lý học tập AI</div>
             <div id="ai-chat-messages" class="p-4 h-64 overflow-y-auto">
-                <div class="chat-message ai-message">Xin chào, mình là Mymee, trợ lý học tập của bạn. Bạn cần mình giúp
-                    gì hôm nay?</div>
+                <div class="chat-message ai-message">Xin chào, mình là MyMee. Bạn cần mình giúp gì hôm nay?</div>
+            </div>
+            <div id="ai-chat-suggestions" class="p-2 border-t bg-white/50">
             </div>
             <div class="p-2 border-t bg-white/50">
                 <input type="text" id="ai-chat-input"
