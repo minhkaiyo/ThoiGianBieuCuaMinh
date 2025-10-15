@@ -439,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="grid md:grid-cols-3 gap-4">
                 <div class="bg-red-500/10 border-l-4 border-red-500 p-4 rounded"><h4 class="font-bold text-red-700 mb-2">🚨 Deadline Gần</h4><ul class="text-sm space-y-1">${deadlinesHTML}</ul></div>
                 <div class="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded"><h4 class="font-bold text-blue-700 mb-2">📚 Tài Nguyên Học</h4><ul class="text-sm space-y-1">${resourcesHTML}</ul></div>
-                <div class="bg-green-500/10 border-l-4 border-green-500 p-4 rounded"><h4 class="font-bold text-green-700 mb-2">💪 Tips Hiệu Quả</h4><ul class="text-sm space-y-1">${tipsHTML}</ul></div>
+                <div class="bg-green-500/10 border-l-4 border-green-500 p-4 rounded"><h4 class="font-bold text-green-700 mb-2">Tâm sự/Ghi chú</h4><ul class="text-sm space-y-1">${tipsHTML}</ul></div>
             </div>
         `;
 
@@ -2447,4 +2447,5 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
 });
+
 
