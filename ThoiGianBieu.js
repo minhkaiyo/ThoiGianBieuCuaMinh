@@ -135,9 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
             appData = JSON.parse(JSON.stringify(defaultAppData));
         }
         renderAll();
-        setupThemeControls();
         setupQuoteRotator();
-        setupAIChat();
         const minLoadingTime = 1500;
 
         setTimeout(() => {
