@@ -126,6 +126,123 @@ document.addEventListener('DOMContentLoaded', function () {
     const authContainer = document.getElementById('auth-container');
     if (!authContainer) return;
     const authRoot = ReactDOM.createRoot(authContainer);
+    setupAIChat();
+
+    const helpModal = document.getElementById('help-modal');
+    const closeHelpBtn = document.getElementById('close-help-modal-btn');
+    const helpTriggerBtn = document.getElementById('help-trigger-btn');
+    const helpContentContainer = document.getElementById('help-content-container');
+
+    const helpTopics = {
+        'tong-quan': {
+            title: 'Quản Lý Tổng Quan (4 Thẻ Đầu Trang)',
+            content: `
+                <p>Bốn thẻ thống kê ở đầu trang cho phép bạn truy cập nhanh vào các cài đặt quan trọng:</p>
+                <ul>
+                    <li><strong>Môn học:</strong> Nhấn để mở bảng quản lý, nơi có thể thêm, sửa, xóa các môn học, đặt độ ưu tiên và số giờ học mỗi tuần.</li>
+                    <li><strong>Giờ/tuần:</strong> Nhấn để mở bảng phân bổ thời gian, điều chỉnh tổng số giờ học mục tiêu và chia giờ cho từng môn.</li>
+                    <li><strong>Tuần học:</strong> Nhấn để đặt ngày bắt đầu và ngày kết thúc của kỳ học. Thanh tiến độ sẽ dựa vào mốc thời gian này.</li>
+                    <li><strong>Mục tiêu:</strong> Nhấn để chọn mục tiêu điểm số (ví dụ: A+, A, B+) cho kỳ học.</li>
+                </ul>
+            `
+        },
+        'thoi-khoa-bieu': {
+            title: 'Thời Khóa Biểu',
+            content: `
+                <p>Đây là khu vực hiển thị lịch trình học tập của bạn theo tuần.</p>
+                <ul>
+                    <li><strong>Chỉnh sửa nhanh:</strong> Nhấn trực tiếp vào một ô bất kỳ (ví dụ: Sáng Thứ 2) để mở bảng chỉnh sửa nhanh cho buổi học đó. Bạn có thể thêm nhiều hoạt động trong cùng một buổi.</li>
+                    <li><strong>Mở Lịch Chi Tiết:</strong> Nhấn vào nút dấu cộng <strong>(+)</strong> ở góc trên bên phải của bảng để mở rộng/thu gọn lịch trình chi tiết cho từng ngày trong tuần.</li>
+                    <li><strong>Reset Lịch:</strong> Nút reset (hình mũi tên xoay tròn) cho phép bạn xóa toàn bộ lịch trình đã sắp xếp trong bảng.</li>
+                </ul>
+            `
+        },
+        'checklist': {
+            title: 'Checklist, Chiến Lược & Lưu Ý',
+            content: `
+                <p>Các công cụ này giúp bạn theo dõi nhiệm vụ và củng cố phương pháp học tập:</p>
+                <ul>
+                    <li><strong>Checklist:</strong> Ghi lại các nhiệm vụ cần làm hàng ngày và hàng tuần. Nhấn vào ô vuông để đánh dấu hoàn thành. Các nhiệm vụ sẽ tự động reset vào đầu ngày/đầu tuần.</li>
+                    <li><strong>Chiến Lược Học Tập:</strong> Nơi ghi lại các phương pháp học hiệu quả (ví dụ: Pomodoro, Feynman) để bạn luôn ghi nhớ và áp dụng.</li>
+                    <li><strong>Lưu Ý Quan Trọng:</strong> Phân loại các ghi chú thành 3 mục: Deadline, Tài nguyên học tập và Tips hiệu quả để dễ dàng theo dõi.</li>
+                    <li><strong>Chỉnh sửa:</strong> Nhấn vào biểu tượng cây bút <strong>✏️</strong> ở mỗi mục để mở bảng chỉnh sửa tương ứng.</li>
+                </ul>
+            `
+        },
+        'ai-mymee': {
+            title: 'Trợ Lý AI MyMee',
+            content: `
+                <p>MyMee là trợ lý ảo thông minh giúp bạn quản lý lịch trình bằng ngôn ngữ tự nhiên.</p>
+                <ul>
+                    <li><strong>Mở cửa sổ chat:</strong> Nhấn vào biểu tượng robot ở góc dưới bên phải màn hình.</li>
+                    <li><strong>Ra lệnh:</strong> Bạn có thể yêu cầu MyMee thực hiện các tác vụ như "Thêm môn Giải tích vào sáng thứ 3", "Xóa lịch học chiều thứ 5", hoặc "Đặt mục tiêu của tôi là A+".</li>
+                    <li><strong>Trò chuyện:</strong> Bạn cũng có thể hỏi MyMee các câu hỏi thông thường hoặc nhờ tư vấn về việc học.</li>
+                </ul>
+            `
+        }
+    };
+
+    // Hàm để hiển thị menu chính
+    function renderHelpMenu() {
+        const menuTitle = `<h3 class="panel-title text-2xl font-bold mb-6 text-center">Bạn cần giúp đỡ về mục nào?</h3>`;
+        const menuButtons = Object.keys(helpTopics).map(key => {
+            const topic = helpTopics[key];
+            return `<button class="w-full text-left p-4 rounded-lg font-semibold text-lg transition-colors duration-200 bg-black/5 hover:bg-black/10 night-bg:bg-white/5 night-bg:hover:bg-white/10 mb-3" data-topic-id="${key}">
+                        ${topic.title}
+                    </button>`;
+        }).join('');
+        helpContentContainer.innerHTML = menuTitle + menuButtons;
+    }
+
+    // Hàm để hiển thị bảng chi tiết
+    function renderHelpDetail(topicId) {
+        const topic = helpTopics[topicId];
+        if (!topic) {
+            renderHelpMenu(); // Quay về menu nếu không tìm thấy topic
+            return;
+        }
+        const detailHTML = `
+            <div class="flex items-center mb-6">
+                <button id="help-back-btn" class="p-2 rounded-full hover:bg-black/10 night-bg:hover:bg-white/10 mr-4 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h3 class="panel-title text-2xl font-bold">${topic.title}</h3>
+            </div>
+            <div class="help-prose max-w-none text-left leading-relaxed">
+                ${topic.content}
+            </div>
+        `;
+        helpContentContainer.innerHTML = detailHTML;
+    }
+
+    // Mở modal và hiển thị menu
+    helpTriggerBtn?.addEventListener('click', () => {
+        renderHelpMenu();
+        helpModal?.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+    });
+
+    // Đóng modal
+    const closeHelpModal = () => {
+        helpModal?.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+    };
+    closeHelpBtn?.addEventListener('click', closeHelpModal);
+    helpModal?.addEventListener('click', (e) => {
+        if (e.target.id === 'help-modal') closeHelpModal();
+    });
+
+    // Xử lý các click bên trong modal (chọn mục hoặc quay lại)
+    helpContentContainer?.addEventListener('click', (e) => {
+        const topicButton = e.target.closest('[data-topic-id]');
+        const backButton = e.target.closest('#help-back-btn');
+
+        if (topicButton) {
+            renderHelpDetail(topicButton.dataset.topicId);
+        } else if (backButton) {
+            renderHelpMenu();
+        }
+    });
 
     onAuthStateChanged(auth, async (user) => {
         authRoot.render(React.createElement(AuthComponent, { user }));
@@ -220,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function () {
         renderFooter();
         // setupAIChat(); 
         setupThemeControls();
-        setupAIChat();
+
     }
 
     function renderHeaderAndStats() {
@@ -394,7 +511,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const container = document.getElementById('other-sections');
         if (!container) return;
 
-        // --- (Phần xử lý logic dữ liệu ở đầu hàm vẫn giữ nguyên) ---
         const totalAllocatedHours = Object.values(appData.subjects).reduce((sum, s) => sum + (s.weeklyHours || 0), 0);
         const subjectsExist = Object.keys(appData.subjects).length > 0;
         const strategiesExist = appData.studyStrategies.length > 0;
@@ -439,11 +555,10 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="grid md:grid-cols-3 gap-4">
                 <div class="bg-red-500/10 border-l-4 border-red-500 p-4 rounded"><h4 class="font-bold text-red-700 mb-2">🚨 Deadline Gần</h4><ul class="text-sm space-y-1">${deadlinesHTML}</ul></div>
                 <div class="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded"><h4 class="font-bold text-blue-700 mb-2">📚 Tài Nguyên Học</h4><ul class="text-sm space-y-1">${resourcesHTML}</ul></div>
-                <div class="bg-green-500/10 border-l-4 border-green-500 p-4 rounded"><h4 class="font-bold text-green-700 mb-2">Tâm sự/Ghi chú</h4><ul class="text-sm space-y-1">${tipsHTML}</ul></div>
+                <div class="bg-green-500/10 border-l-4 border-green-500 p-4 rounded"><h4 class="font-bold text-green-700 mb-2">✏️ Tâm sự/Ghi chú</h4><ul class="text-sm space-y-1">${tipsHTML}</ul></div>
             </div>
         `;
 
-        // === BẮT ĐẦU PHẦN SỬA LỖI CẤU TRÚC HTML ===
         container.innerHTML = `
             <div class="grid md:grid-cols-2 gap-6 mb-8">
                 <div id="subjects-section" class="glass-card rounded-2xl p-6">
@@ -454,10 +569,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <h3 class="heading-font text-xl font-bold mb-4">⏱️ Phân Bổ Thời Gian Tuần</h3>
                     <div class="chart-container mb-4">
                         <canvas id="timeAllocationChart"></canvas>
-                        <div id="theme-menu-container">
-                            <button id="theme-menu-trigger" title="Chọn style biểu đồ">🎨</button>
-                            <div id="theme-options"></div>
-                        </div>
+                        <div id="theme-menu-container"><button id="theme-menu-trigger" title="Chọn style biểu đồ">🎨</button><div id="theme-options"></div></div>
                     </div>
                     <div class="space-y-4">
                         <div class="flex justify-between font-bold text-sm border-b pb-2 mb-2">
@@ -468,41 +580,31 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </div>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div class="glass-card rounded-2xl p-6 md:col-span-2">
+                <div id="notes-section" class="glass-card rounded-2xl p-6 md:col-span-2">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="heading-font text-xl font-bold">📌 Lưu Ý Quan Trọng</h3>
                         <button class="edit-btn text-xl opacity-70 hover:opacity-100" data-modal="notes" title="Chỉnh sửa lưu ý">✏️</button>
                     </div>
                     ${notesExist ? notesContent : `<p class="placeholder-text">${appData.placeholders.notes}</p>`}
                 </div>
-
                 <div id="checklist-card" class="glass-card rounded-2xl p-6 md:col-span-2">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="heading-font text-xl font-bold">✅ Checklist</h3>
                         <button class="edit-btn text-xl opacity-70 hover:opacity-100" data-modal="checklist" title="Chỉnh sửa checklist">✏️</button>
                     </div>
                     <div class="grid md:grid-cols-2 gap-6 mt-4">
-                        <div>
-                            <h4 class="font-semibold mb-2">Nhiệm vụ hàng ngày</h4>
-                            <div class="space-y-2 text-sm" id="daily-checklist-container"></div>
-                        </div>
-                        <div>
-                            <h4 class="font-semibold mb-2">Nhiệm vụ hàng tuần</h4>
-                            <div class="space-y-2 text-sm" id="weekly-checklist-container"></div>
-                        </div>
+                        <div><h4 class="font-semibold mb-2">Nhiệm vụ hàng ngày</h4><div class="space-y-2 text-sm" id="daily-checklist-container"></div></div>
+                        <div><h4 class="font-semibold mb-2">Nhiệm vụ hàng tuần</h4><div class="space-y-2 text-sm" id="weekly-checklist-container"></div></div>
                     </div>
                 </div>
-
-                <div class="glass-card rounded-2xl p-6">
+                <div id="strategies-section" class="glass-card rounded-2xl p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="heading-font text-xl font-bold">💡 Chiến Lược Học Tập</h3>
                         <button class="edit-btn text-xl opacity-70 hover:opacity-100" data-modal="strategies" title="Chỉnh sửa chiến lược">✏️</button>
                     </div>
                     <div class="space-y-3 text-sm">${studyStrategiesHTML}</div>
                 </div>
-                
                 <div class="quote-card">
                     <h3 class="heading-font text-xl font-bold mb-4">✨ Động Lực Mỗi Ngày</h3>
                     <p id="quote-text" class="text-lg italic mb-4">Đang tải trích dẫn...</p>
@@ -510,8 +612,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             </div>
         `;
-        // === KẾT THÚC PHẦN SỬA LỖI CẤU TRÚC HTML ===
-
         renderChecklists();
     }
 
@@ -736,10 +836,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label class="font-semibold text-sm">Tên môn học</label><input type="text" value="${subject.name}" class="modal-input subject-name"></div>
-                        <div><label class="font-semibold text-sm">Giờ/tuần</label><input type="number" step="0.5" value="${subject.weeklyHours}" class="modal-input subject-hours"></div>
+                        <div><label class="font-semibold text-sm">Giờ/tuần</label><input type="number" step="0.5" value="${subject.weeklyHours || 0}" class="modal-input subject-hours"></div>
                         <div><label class="font-semibold text-sm">Độ ưu tiên</label><select class="modal-select subject-priority">${priorityOptions.replace(`value="${subject.priority}"`, `value="${subject.priority}" selected`)}</select></div>
-                        <div><label class="font-semibold text-sm">Biểu tượng</label><input type="text" value="${subject.emoji}" class="modal-input subject-emoji"></div>
-                        <div class="md:col-span-2"><label class="font-semibold text-sm">Ghi chú</label><input type="text" value="${subject.notes}" class="modal-input subject-notes"></div>
+                        
+                        <div><label class="font-semibold text-sm">Biểu tượng</label><input type="text" value="${subject.emoji || '💡'}" class="modal-input subject-emoji"></div>
+                        
+                        <div class="md:col-span-2"><label class="font-semibold text-sm">Ghi chú</label><input type="text" value="${subject.notes || ''}" class="modal-input subject-notes"></div>
                     </div>
                 </div>
             `;
@@ -1073,32 +1175,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
         setTimeout(async () => {
             try {
-                const twoHoursInMs = 2 * 60 * 60 * 1000;
-                const cachedQuote = JSON.parse(localStorage.getItem('dailyQuote'));
+                // Đã xóa logic cache để đảm bảo luôn lấy quote mới mỗi giờ
+                const quoteResponse = await fetch('https://api.quotable.io/random');
+                if (!quoteResponse.ok) throw new Error('Failed to fetch quote');
+                const quoteData = await quoteResponse.json();
+                const englishQuote = quoteData.content;
 
-                if (cachedQuote && (Date.now() - cachedQuote.timestamp < twoHoursInMs)) {
-                    quoteTextEl.textContent = `"${cachedQuote.text}"`;
-                    quoteTranslationEl.textContent = cachedQuote.translation;
-                } else {
-                    const quoteResponse = await fetch('https://api.quotable.io/random');
-                    if (!quoteResponse.ok) throw new Error('Failed to fetch quote');
-                    const quoteData = await quoteResponse.json();
-                    const englishQuote = quoteData.content;
+                const transResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(englishQuote)}&langpair=en|vi`);
+                if (!transResponse.ok) throw new Error('Failed to fetch translation');
+                const transData = await transResponse.json();
+                const vietnameseTranslation = transData.responseData.translatedText;
 
-                    const transResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(englishQuote)}&langpair=en|vi`);
-                    if (!transResponse.ok) throw new Error('Failed to fetch translation');
-                    const transData = await transResponse.json();
-                    const vietnameseTranslation = transData.responseData.translatedText;
+                quoteTextEl.textContent = `"${englishQuote}"`;
+                quoteTranslationEl.textContent = vietnameseTranslation;
 
-                    quoteTextEl.textContent = `"${englishQuote}"`;
-                    quoteTranslationEl.textContent = vietnameseTranslation;
-
-                    localStorage.setItem('dailyQuote', JSON.stringify({
-                        timestamp: Date.now(),
-                        text: englishQuote,
-                        translation: vietnameseTranslation
-                    }));
-                }
+                // Không cần lưu vào localStorage nữa vì chúng ta cập nhật liên tục
 
             } catch (error) {
                 console.error("Quote fetch error:", error);
@@ -1116,7 +1207,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const helpTriggerBtn = document.getElementById('help-trigger-btn');
         const helpModal = document.getElementById('help-modal');
         const closeHelpBtn = document.getElementById('close-help-modal-btn');
-        let helpModalHideTimeout;
+        const accordionContainer = document.getElementById('accordion-container');
 
         helpTriggerBtn?.addEventListener('click', () => {
             helpModal?.classList.remove('hidden');
@@ -1126,79 +1217,37 @@ document.addEventListener('DOMContentLoaded', function () {
             helpModal?.classList.add('hidden');
         });
 
-        // Đóng khi nhấp ra ngoài
         helpModal?.addEventListener('click', (e) => {
             if (e.target.id === 'help-modal') {
                 helpModal.classList.add('hidden');
             }
         });
 
-        // Tự động đóng khi rời chuột
-        helpModal?.addEventListener('mouseleave', () => {
-            helpModalHideTimeout = setTimeout(() => {
-                helpModal.classList.add('hidden');
-            }, 2000);
+        // Logic cho accordion hướng dẫn
+        accordionContainer?.addEventListener('click', (e) => {
+            const header = e.target.closest('.accordion-header');
+            if (header) {
+                const panel = header.nextElementSibling;
+                header.classList.toggle('active');
+                if (panel.style.maxHeight) {
+                    panel.style.maxHeight = null;
+                    panel.style.padding = "0 16px";
+                } else {
+                    panel.style.maxHeight = panel.scrollHeight + "px";
+                    panel.style.padding = "16px";
+                }
+            }
         });
-
-        // Hủy đóng nếu chuột quay lại
-        helpModal?.addEventListener('mouseenter', () => {
-            clearTimeout(helpModalHideTimeout);
-        });
-
-
-        const themeMenuContainer = document.getElementById('theme-menu-container');
-        const themeOptions = document.getElementById('theme-options');
-        let chartMenuHideTimeout;
-
-        themeMenuContainer?.addEventListener('mouseleave', () => {
-            chartMenuHideTimeout = setTimeout(() => {
-                themeOptions?.classList.remove('visible');
-            }, 500);
-        });
-
-        themeMenuContainer?.addEventListener('mouseenter', () => {
-            clearTimeout(chartMenuHideTimeout);
-        });
-
 
         document.getElementById('subjects-stat-card')?.addEventListener('click', (e) => { e.preventDefault(); openSubjectsEditModal(); });
         document.getElementById('hours-stat-card')?.addEventListener('click', (e) => { e.preventDefault(); openTimeAllocationModal(); });
         document.getElementById('week-stat-card')?.addEventListener('click', (e) => { e.preventDefault(); openDatesEditModal(); });
         document.getElementById('goal-card')?.addEventListener('click', (e) => { e.preventDefault(); openGoalEditModal(); });
 
-        document.addEventListener('click', (e) => {
-            const themeMenu = document.getElementById('theme-options');
-            const themeTrigger = document.getElementById('theme-menu-trigger');
-            if (themeMenu && themeTrigger && !e.target.closest('#theme-menu-container')) {
-                themeMenu.classList.remove('visible');
-            }
-        });
-
         const modal = document.getElementById('edit-modal');
         modal.addEventListener('click', function (e) {
-            if (e.target.id === 'edit-modal') {
+            if (e.target.id === 'edit-modal' || e.target.id === 'close-modal-btn' || e.target.id === 'cancel-btn') {
                 closeModal();
-                return;
-            }
-
-            if (e.target.id === 'close-modal-btn' || e.target.id === 'cancel-btn') {
-                closeModal();
-                return;
-            }
-
-            if (e.target.id === 'add-slot-activity-btn') {
-                const container = document.getElementById('slot-activities-container');
-                if (container) {
-                    const newIndex = container.children.length;
-                    const newFormHTML = createActivityFormHTML({}, newIndex);
-                    container.insertAdjacentHTML('beforeend', newFormHTML);
-                }
-                return;
-            }
-
-            const deleteSlotBtn = e.target.closest('.delete-slot-activity-btn');
-            if (deleteSlotBtn) {
-                deleteSlotBtn.closest('.slot-activity-form-group').remove();
                 return;
             }
 
@@ -1207,7 +1256,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     case 'goal': saveGoalChanges(); break;
                     case 'dates': saveDatesChanges(); break;
                     case 'slot': saveSlotChanges(); break;
-                    case 'schedule': saveScheduleChanges(); break;
                     case 'detailedDay': saveDetailedDayChanges(currentEditingDayKey); break;
                     case 'subjects': saveSubjectChanges(); break;
                     case 'time': saveTimeAllocationChanges(); break;
@@ -1220,45 +1268,77 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (e.target.id === 'add-new-subject-btn') addNewSubjectForm();
             if (e.target.id === 'add-new-strategy-btn') addNewStrategyForm();
+
+            if (e.target.id === 'add-slot-activity-btn') {
+                const container = document.getElementById('slot-activities-container');
+                const newIndex = container.children.length;
+                container.insertAdjacentHTML('beforeend', createActivityFormHTML({}, newIndex));
+            }
+
             if (e.target.id === 'add-activity-btn') {
                 const list = document.getElementById('detailed-activities-list');
-                if (!list) return;
                 const newIndex = list.children.length;
                 const categories = ['Sinh hoạt', 'Ngoại khóa', 'Tự học', 'Lên lớp', 'Thư viện', 'Nghỉ ngơi', 'Giải trí', 'Đi làm'];
                 const categoryOptions = categories.map(c => `<option value="${c}">${c}</option>`).join('');
-                const newRow = document.createElement('div');
-                newRow.className = 'p-3 border rounded-lg grid grid-cols-1 md:grid-cols-4 gap-2 items-center';
-                newRow.dataset.activityIndex = newIndex;
-                newRow.innerHTML = `
-                    <input type="text" class="modal-input md:col-span-1 activity-time" placeholder="VD: 8:00-9:00">
-                    <input type="text" class="modal-input md:col-span-2 activity-desc" placeholder="Hoạt động">
-                    <select class="modal-select activity-category">${categoryOptions}</select>
-                    <button class="delete-activity-btn bg-red-100 text-red-600 rounded px-2 py-1 text-xs hover:bg-red-200">Xóa</button>
-                `;
-                list.appendChild(newRow);
+                const newRow = `
+                    <div class="p-3 border rounded-lg grid grid-cols-1 md:grid-cols-4 gap-2 items-center" data-activity-index="${newIndex}">
+                        <input type="text" class="modal-input md:col-span-1 activity-time" placeholder="VD: 8:00-9:00">
+                        <input type="text" class="modal-input md:col-span-2 activity-desc" placeholder="Hoạt động mới">
+                        <select class="modal-select activity-category">${categoryOptions}</select>
+                        <button class="delete-activity-btn bg-red-100 text-red-600 rounded px-2 py-1 text-xs hover:bg-red-200">Xóa</button>
+                    </div>`;
+                list.insertAdjacentHTML('beforeend', newRow);
             }
 
-            if (e.target.matches('.delete-activity-btn, .delete-subject-btn, .delete-item-btn')) {
-                e.target.closest('[data-activity-index], [data-subject-key], [data-strategy-index]').remove();
+            const deleteSubjectBtn = e.target.closest('.delete-subject-btn');
+            if (deleteSubjectBtn) {
+                deleteSubjectBtn.closest('[data-subject-key]').remove();
             }
 
-            if (e.target.matches('.emoji-picker span')) {
-                const input = e.target.closest('.flex.items-center.gap-2').querySelector('.strategy-emoji');
-                if (input) input.value = e.target.textContent;
+            const deleteStrategyBtn = e.target.closest('.delete-item-btn');
+            if (deleteStrategyBtn) {
+                deleteStrategyBtn.closest('[data-strategy-index]').remove();
+            }
+
+            const deleteSlotActivityBtn = e.target.closest('.delete-slot-activity-btn');
+            if (deleteSlotActivityBtn) {
+                deleteSlotActivityBtn.closest('.slot-activity-form-group').remove();
+            }
+
+            const deleteActivityBtn = e.target.closest('.delete-activity-btn');
+            if (deleteActivityBtn) {
+                deleteActivityBtn.closest('[data-activity-index]').remove();
+            }
+
+            const emoji = e.target.closest('.emoji-picker span');
+            if (emoji) {
+                const strategyForm = emoji.closest('[data-strategy-index]');
+                const emojiInput = strategyForm.querySelector('.strategy-emoji');
+                if (emojiInput) {
+                    emojiInput.value = emoji.textContent;
+                }
             }
         });
-        // === KẾT THÚC NÂNG CẤP: Logic cho Bảng Chỉnh Sửa Chính ===
 
         modal.addEventListener('input', function (e) {
-            if (e.target.matches('.time-alloc-input, #total-hours-target')) {
+            if (e.target.classList.contains('time-alloc-input') || e.target.id === 'total-hours-target') {
+                const totalTarget = parseFloat(document.getElementById('total-hours-target').value) || 0;
                 let totalAllocated = 0;
-                document.querySelectorAll('.time-alloc-input').forEach(input => { totalAllocated += parseFloat(input.value) || 0; });
-                const totalTarget = document.getElementById('total-hours-target').value;
-                document.getElementById('total-allocated-display').textContent = `${totalAllocated.toFixed(1)}h / ${totalTarget}h`;
+                document.querySelectorAll('.time-alloc-input').forEach(input => {
+                    totalAllocated += parseFloat(input.value) || 0;
+                });
+                const displayEl = document.getElementById('total-allocated-display');
+                if (displayEl) {
+                    displayEl.textContent = `${totalAllocated.toFixed(1)}h / ${totalTarget}h`;
+                    if (totalAllocated > totalTarget) {
+                        displayEl.classList.add('text-red-500');
+                    } else {
+                        displayEl.classList.remove('text-red-500');
+                    }
+                }
             }
         });
 
-        // Các listener còn lại
         setTimeout(() => { document.querySelectorAll('.progress-fill').forEach(fill => { fill.style.width = fill.getAttribute('data-width'); }); }, 300);
         document.body.removeEventListener('click', handleBodyClick);
         document.body.addEventListener('click', handleBodyClick);
@@ -1403,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <textarea id="resources-notes" class="modal-input h-24">${resources.join('\n')}</textarea>
                 </div>
                 <div>
-                    <label for="tips-notes" class="font-bold text-lg text-green-700">Tâm sự/Ghi chú</label>
+                    <label for="tips-notes" class="font-bold text-lg text-green-700">💪 Tips Hiệu Quả</label>
                     <p class="text-xs text-gray-500 mb-2">Mỗi mục trên một dòng.</p>
                     <textarea id="tips-notes" class="modal-input h-24">${tips.join('\n')}</textarea>
                 </div>
@@ -2040,9 +2120,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setupQuoteRotator() {
         fetchAndDisplayQuote();
-
-        const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
-        setInterval(fetchAndDisplayQuote, TEN_MINUTES_IN_MS);
     }
 
 
@@ -2053,38 +2130,38 @@ document.addEventListener('DOMContentLoaded', function () {
     // ============================================================
     function mergeDeep(target, source) {
         const isObject = (obj) => obj && typeof obj === 'object' && !Array.isArray(obj);
-
-        // Kiểm tra xem AI có yêu cầu "nối thêm" vào mảng không
-        const isAppendAction = source._mergeAction === 'append';
+        const output = { ...target };
 
         Object.keys(source).forEach(key => {
-            // Bỏ qua key đặc biệt dùng để chỉ dẫn
-            if (key === '_mergeAction') return;
-
-            const targetValue = target[key];
+            const targetValue = output[key];
             const sourceValue = source[key];
 
-            if (isAppendAction && Array.isArray(targetValue) && Array.isArray(sourceValue)) {
-                // HÀNH ĐỘNG MỚI: Nối mảng source vào mảng target
-                target[key] = targetValue.concat(sourceValue);
-            } else if (isObject(targetValue) && isObject(sourceValue)) {
-                // Xử lý việc xóa một key (khi AI trả về null)
-                if (sourceValue === null) {
-                    delete target[key];
-                } else {
-                    target[key] = mergeDeep(Object.assign({}, targetValue), sourceValue);
+            if (isObject(sourceValue) && sourceValue._mergeAction === 'append') {
+                const arrayToAppend = sourceValue[key];
+
+                if (Array.isArray(targetValue) && Array.isArray(arrayToAppend)) {
+                    output[key] = [...targetValue, ...arrayToAppend];
+                } else if (Array.isArray(arrayToAppend)) {
+                    output[key] = arrayToAppend;
                 }
-            } else {
-                // Xử lý việc xóa một key hoặc ghi đè giá trị
+            }
+            else if (isObject(targetValue) && isObject(sourceValue)) {
                 if (sourceValue === null) {
-                    delete target[key];
+                    delete output[key];
                 } else {
-                    target[key] = sourceValue;
+                    output[key] = mergeDeep(targetValue, sourceValue);
+                }
+            }
+            else {
+                if (sourceValue === null) {
+                    delete output[key];
+                } else {
+                    output[key] = sourceValue;
                 }
             }
         });
 
-        return target;
+        return output;
     }
     function createSlimAppDataForAI(fullData) {
         const slimData = {
@@ -2109,24 +2186,74 @@ document.addEventListener('DOMContentLoaded', function () {
         return slimData;
     }
 
+    async function getAIFeedbackMessage(originalRequest) {
+        const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs'; // Thay thế bằng API key của bạn
+        const MODEL_NAME = 'gemini-2.5-flash';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+        const prompt = `
+            BẠN LÀ TRỢ LÝ AI MYMEE.
+            NHIỆM VỤ: Bạn vừa hoàn thành xuất sắc yêu cầu của người dùng. Bây giờ, hãy tạo một câu phản hồi NGẮN GỌN, TỰ NHIÊN và VUI VẺ để thông báo rằng nhiệm vụ đã xong và hỏi xem họ có hài lòng không.
+            
+            LUẬT:
+            - Giữ vai trò là MyMee: thân thiện, xưng hô "mình-bạn".
+            - Câu trả lời phải thật ngắn, chỉ MỘT câu.
+            - Luôn kết thúc bằng một câu hỏi phản hồi như "bạn thấy sao nè?", "bạn thấy ổn áp chưa?", "check lại xem oke không nha?".
+            
+            YÊU CẦU GỐC CỦA NGƯỜI DÙNG: "${originalRequest}"
+            
+            VÍ DỤ:
+            - Yêu cầu: "thêm học Xác suất thống kê vào sáng thứ 3" -> Phản hồi ví dụ: "Mình đã xếp lịch học Xác suất thống kê vào sáng thứ 3 rồi đó, bạn xem đã đúng ý chưa nè?"
+            - Yêu cầu: "xóa môn Triết học" -> Phản hồi ví dụ: "Okay, mình đã giúp bạn cho môn Triết học 'bay màu' khỏi lịch trình rồi nha, bạn thấy hài lòng không?"
+            - Yêu cầu: "thêm 'chạy deadline' vào checklist" -> Phản hồi ví dụ: "Xong ngay! Mình đã thêm 'chạy deadline' vào checklist hàng tuần cho bạn rồi đó, bạn thấy sao?"
+
+            CÂU PHẢN HỒI CỦA BẠN:
+        `;
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text.trim();
+        } catch (error) {
+            console.error("Lỗi khi tạo feedback message:", error);
+            return "Mình đã cập nhật xong rồi, bạn kiểm tra xem đã ổn chưa nhé!";
+        }
+    }
+
+
     async function getAIPlan(userMessage, previousAttemptFailed = false) {
-        const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs';
+        const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs'; // Thay thế bằng API key của bạn
         const MODEL_NAME = 'gemini-2.5-flash';
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
 
         try {
             const slimDataForAI = createSlimAppDataForAI(appData);
-            const retryInstruction = previousAttemptFailed ? "Lưu ý: Đề xuất trước đó không được chấp nhận." : "";
+            const retryInstruction = previousAttemptFailed ? "Lưu ý: Đề xuất trước đó không được chấp nhận. Hãy phân tích kỹ hơn và đảm bảo không tạo ra các mục trùng lặp." : "";
 
+            // <<< BỘ QUY TẮC MỚI CHO AI BẮT ĐẦU TỪ ĐÂY >>>
             const prompt = `
-            Tên của bạn là MyMee, do người tên Văn Minh cố gắng tích hợp vào trong web này. Bạn là một trợ lý AI siêu thông minh, là bộ não của ứng dụng "Excellence Planner".
+            Tên của bạn là MyMee. Bạn là một trợ lý AI siêu thông minh, là bộ não của ứng dụng "Excellence Planner".
             **Nhiệm vụ:**
-            Phân tích yêu cầu của người dùng và trả về một đối tượng JSON để cập nhật dữ liệu. Bạn có thể chỉnh sửa thông tin trong web bất kì mục nào theo yêu cầu của người dùng.
-            - Để **THAY THẾ** một giá trị hoặc một danh sách, chỉ cần trả về giá trị mới.
-            - Để **THÊM** vào một danh sách (checklist, deadlines, resources, tips, studyStrategies), hãy thêm key đặc biệt "_mergeAction": "append" vào đối tượng chứa danh sách đó.
-            - Để **XÓA** một mục, hãy trả về giá trị 'null' cho key của nó.
+            Phân tích yêu cầu của người dùng và trả về một đối tượng JSON để cập nhật dữ liệu một cách CHÍNH XÁC.
 
-            **Cấu trúc dữ liệu của người dùng:**
+            **QUY TẮC TỐI THƯỢNG: KHÔNG ĐƯỢC PHÉP TẠO RA DỮ LIỆU TRÙNG LẶP!**
+            - Trước khi THÊM bất kỳ hoạt động nào vào lịch, bạn BẮT BUỘC phải kiểm tra xem trong buổi đó đã tồn tại một hoạt động TƯƠNG TỰ (cùng loại, cùng môn học, hoặc cùng ghi chú 'Tự học') hay chưa.
+            - Nếu đã tồn tại rồi, TUYỆT ĐỐI KHÔNG THÊM NỮA. Hãy bỏ qua và chỉ thêm vào những ngày/buổi thực sự còn trống hoặc chưa có hoạt động đó.
+
+            **QUY TẮC VỀ CẤU TRÚC LỊCH BIỂU (schedule.dayData):**
+            - Giá trị của một buổi (ví dụ: T2.sang) LUÔN LUÔN là một MẢNG (ARRAY) các hoạt động.
+            - Khi THÊM hoạt động, bạn phải lấy MẢNG HIỆN TẠI, thêm hoạt động mới vào cuối, và trả về TOÀN BỘ MẢNG ĐÃ CẬP NHẬT.
+
+            **CÁC QUY TẮC KHÁC:**
+            - Để **THÊM** vào danh sách (checklist, deadlines), dùng "_mergeAction": "append".
+            - Để **XÓA** một mục, trả về giá trị 'null' cho key của nó.
+            - Nếu người dùng yêu cầu xếp lịch cho môn học không có trong 'subjects', trả về JSON: \`{ "error": "subject_not_found", "subjectName": "Tên môn học" }\`.
+
+            **Dữ liệu hiện tại của người dùng:**
             ${JSON.stringify(slimDataForAI)}
 
             **Yêu cầu của người dùng:**
@@ -2134,21 +2261,42 @@ document.addEventListener('DOMContentLoaded', function () {
             ${retryInstruction}
 
             --- CÁC VÍ DỤ ---
-            **Ví dụ 1 (Thay thế hoạt động):**
-            - Yêu cầu: "Đặt lịch học Xác suất thống kê vào sáng thứ 3" (key: 'XSTK123')
-            - JSON: { "schedule": { "dayData": { "T3": { "sang": [{ "type": "class", "subjects": ["XSTK123"] }] } } } }
+            **Ví dụ 1 (THÊM vào buổi đã có lịch - TRÁNH TRÙNG LẶP):**
+            - Dữ liệu hiện tại:
+              - T2.chieu: [] (Trống)
+              - T3.chieu: [{ "type": "study", "subjects": [], "notes": "Tự học" }] (Đã có lịch tự học)
+              - T4.chieu: [{ "type": "class", "subjects": ["DTS456"] }] (Có lịch học môn khác)
+            - Yêu cầu: "Thêm lịch tự học cho tất cả các buổi chiều"
+            - JSON KẾT QUẢ ĐÚNG (Chỉ thêm vào T2 và T4, bỏ qua T3 vì đã có):
+              {
+                "schedule": {
+                  "dayData": {
+                    "T2": {
+                      "chieu": [{ "type": "study", "subjects": [], "notes": "Tự học" }]
+                    },
+                    "T4": {
+                      "chieu": [
+                        { "type": "class", "subjects": ["DTS456"] },
+                        { "type": "study", "subjects": [], "notes": "Tự học" }
+                      ]
+                    }
+                  }
+                }
+              }
 
-            **Ví dụ 2 (THÊM vào checklist):**
-            - Yêu cầu: "Thêm nhiệm vụ 'đọc sách' vào checklist hàng ngày"
-            - JSON: { "checklist": { "_mergeAction": "append", "daily": [{ "text": "đọc sách", "checked": false }] } }
-
-            **Ví dụ 3 (XÓA môn học):**
-            - Yêu cầu: "Xóa môn Triết học" (key: 'TrietHoc456')
-            - JSON: { "subjects": { "TrietHoc456": null } }
+            **Ví dụ 2 (XÓA một hoạt động cụ thể):**
+            - Dữ liệu hiện tại: T5.sang = [ { "type": "class", "subjects": ["VL101"] }, { "type": "study", "subjects": ["TOAN202"] } ]
+            - Yêu cầu: "xóa lịch học Vật lý sáng thứ 5"
+            - JSON KẾT QUẢ (chỉ còn lại môn Toán):
+              {
+                "schedule": { "dayData": { "T5": { "sang": [{ "type": "study", "subjects": ["TOAN202"] }] } } }
+              }
             --- KẾT THÚC VÍ DỤ ---
 
             **JSON kết quả:**
-        `;
+            `;
+            // <<< BỘ QUY TẮC MỚI CHO AI KẾT THÚC TẠI ĐÂY >>>
+
 
             const response = await fetch(API_URL, {
                 method: 'POST',
@@ -2171,7 +2319,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return null;
         }
     }
-
 
     async function getAIChatResponse(userMessage, chatHistory = [], memory = {}) {
         const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs';
@@ -2341,36 +2488,98 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
+    function renderAISuggestions() {
+        const suggestionsContainer = document.getElementById('ai-chat-suggestions');
+        if (!suggestionsContainer) return;
+
+        const suggestions = new Set();
+        const subjects = Object.values(appData.subjects);
+        const subjectNames = subjects.map(s => s.name);
+        const days = [{ key: 'T2', name: 'thứ 2' }, { key: 'T3', name: 'thứ 3' }, { key: 'T4', name: 'thứ 4' }, { key: 'T5', name: 'thứ 5' }, { key: 'T6', name: 'thứ 6' }];
+        const slots = [{ key: 'sang', name: 'sáng' }, { key: 'chieu', name: 'chiều' }, { key: 'toi', name: 'tối' }];
+
+        if (subjects.length > 0) {
+            const randomSubjectName = subjectNames[Math.floor(Math.random() * subjectNames.length)];
+            let foundEmptySlot = false;
+            for (let i = 0; i < 5; i++) { // Thử tìm 5 lần
+                const randomDay = days[Math.floor(Math.random() * days.length)];
+                const randomSlot = slots[Math.floor(Math.random() * slots.length)];
+                const dayData = appData.schedule.dayData[randomDay.key];
+                if (!dayData || !dayData[randomSlot.key] || dayData[randomSlot.key].length === 0) {
+                    suggestions.add(`Thêm môn ${randomSubjectName} vào ${randomSlot.name} ${randomDay.name}`);
+                    foundEmptySlot = true;
+                    break;
+                }
+            }
+        }
+
+        if (subjects.length > 1) {
+            const randomSubjectName = subjectNames[Math.floor(Math.random() * subjectNames.length)];
+            suggestions.add(`Xóa môn ${randomSubjectName}`);
+        }
+
+        suggestions.add("Thêm 'làm bài tập lớn' vào checklist tuần");
+
+        // Gợi ý 4 (nếu có deadline): Hỏi về deadline
+        if (appData.importantNotes.deadlines.length > 0) {
+            suggestions.add("Nhắc tôi các deadline sắp tới");
+        }
+
+        // Render các gợi ý ra giao diện
+        if (suggestions.size > 0) {
+            suggestionsContainer.innerHTML = Array.from(suggestions).slice(0, 3).map(text =>
+                `<button class="ai-suggestion-btn">${text}</button>`
+            ).join('');
+        } else {
+            suggestionsContainer.innerHTML = `<p class="text-xs text-center text-gray-400 w-full">Không có gợi ý nào.</p>`;
+        }
+    }
+
     function setupAIChat() {
+        const cuteWaitingMessages = [
+            "MyMee đang suy nghĩ xíu nha...",
+            "Chờ mình một lát nhé, sắp xong rùi...",
+            "Để MyMee load data một tẹo...",
+            "Oki, mình nhận được rùi, đang xử lý đây...",
+            "Ui đợi mình xíu nhé...",
+            "Đợi mình xíu xiu nhaaa~"
+        ];
         const trigger = document.getElementById('ai-chat-trigger');
         const windowEl = document.getElementById('ai-chat-window');
         const input = document.getElementById('ai-chat-input');
         const messagesContainer = document.getElementById('ai-chat-messages');
+        const suggestionsContainer = document.getElementById('ai-chat-suggestions');
         let chatHistory = [];
-        let isAITyping = false; // Biến cờ để ngăn người dùng gửi tin nhắn khi AI đang gõ
+        let isAITyping = false;
 
-        if (!trigger || !windowEl || !input || !messagesContainer) {
-            console.error("Lỗi: Không tìm thấy các thành phần của chat widget.");
-            return;
-        }
+        if (!trigger || !windowEl || !input || !messagesContainer) return;
+
+        suggestionsContainer?.addEventListener('click', (e) => {
+            if (e.target.classList.contains('ai-suggestion-btn')) {
+                const suggestionText = e.target.textContent;
+                handleSendMessage(suggestionText);
+            }
+        });
 
         trigger.addEventListener('click', () => {
             windowEl.classList.toggle('hidden');
-            if (!windowEl.classList.contains('hidden')) input.focus();
+            if (!windowEl.classList.contains('hidden')) {
+                renderAISuggestions();
+                input.focus();
+            }
         });
 
-        // HÀM HIỂN THỊ TIN NHẮN (ĐÃ NÂNG CẤP VỚI HIỆU ỨNG GÕ CHỮ)
         function addMessageToChatbox(text, sender, animate = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${sender}-message`;
             messagesContainer.appendChild(messageDiv);
 
             if (animate && sender === 'ai') {
-                isAITyping = true; // Bắt đầu gõ
-                input.disabled = true; // Vô hiệu hóa ô nhập liệu
+                isAITyping = true;
+                input.disabled = true;
                 messageDiv.textContent = '';
                 let i = 0;
-                const typingSpeed = 30; // Tốc độ gõ (ms/ký tự), bạn có thể điều chỉnh
+                const typingSpeed = 30;
 
                 const typingInterval = setInterval(() => {
                     if (i < text.length) {
@@ -2379,8 +2588,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     } else {
                         clearInterval(typingInterval);
-                        isAITyping = false; // Kết thúc gõ
-                        input.disabled = false; // Bật lại ô nhập liệu
+                        isAITyping = false;
+                        input.disabled = false;
                         input.focus();
                     }
                 }, typingSpeed);
@@ -2395,58 +2604,113 @@ document.addEventListener('DOMContentLoaded', function () {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // HÀM XỬ LÝ CHÍNH KHI GỬI TIN NHẮN
-        async function handleSendMessage() {
-            if (isAITyping) return; // Nếu AI đang gõ, không cho gửi
+        async function handleSendMessage(message = null) {
+            if (isAITyping) return;
 
-            const userMessage = input.value.trim();
+            const userMessage = message !== null ? message : input.value.trim();
             if (userMessage === '') return;
 
             addMessageToChatbox(userMessage, "user");
-            input.value = '';
+            if (message === null) {
+                input.value = '';
+            }
 
-            // Bước 1: Phân biệt ý định
-            const intent = await detectUserIntent(userMessage);
+            const randomMessage = cuteWaitingMessages[Math.floor(Math.random() * cuteWaitingMessages.length)];
+            const typingMessageDiv = document.createElement('div');
+            typingMessageDiv.className = 'chat-message ai-message';
+            typingMessageDiv.innerHTML = `<p class="ai-waiting-text">${randomMessage}</p><div class="ai-typing-indicator"><span></span><span></span><span></span></div>`;
+            messagesContainer.appendChild(typingMessageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-            // Bước 2: Hành động dựa trên ý định
-            if (intent === 'command') {
-                addMessageToChatbox("Đang xử lý yêu cầu...", "ai");
-                const aiSuggestedChanges = await getAIPlan(userMessage);
-                // Xóa tin nhắn "Đang xử lý..."
-                messagesContainer.removeChild(messagesContainer.lastChild);
+            try {
+                const intent = await detectUserIntent(userMessage);
 
-                if (aiSuggestedChanges) {
-                    originalAppDataState = JSON.parse(JSON.stringify(appData));
-                    appData = mergeDeep(appData, aiSuggestedChanges);
-                    renderAll();
-                    showFeedbackBar("AI đã cập nhật kế hoạch. Bạn thấy sao?", userMessage);
-                    windowEl.classList.add('hidden');
-                    saveDataToFirebase();
-                } else {
-                    addMessageToChatbox("Rất tiếc, đã có lỗi khi xử lý lệnh của bạn.", "ai", true);
-                }
-            } else {
-                // Nếu là trò chuyện
-                const memoryToSave = await extractMemoryFromChat(userMessage);
-                if (memoryToSave) {
-                    if (!appData.aiMemory.facts.includes(memoryToSave)) {
-                        appData.aiMemory.facts.push(memoryToSave);
-                        saveDataToFirebase();
+                if (intent === 'command') {
+                    const aiSuggestedChanges = await getAIPlan(userMessage);
+                    typingMessageDiv.remove();
+
+                    if (aiSuggestedChanges) {
+                        if (aiSuggestedChanges.error === 'subject_not_found') {
+                            const missingSubject = aiSuggestedChanges.subjectName;
+                            addMessageToChatbox(`Mình chưa tìm thấy môn "${missingSubject}" trong danh sách. Bạn hãy tạo nó trước rồi mình sẽ thêm vào lịch nhé!`, "ai", true);
+                        } else {
+                            originalAppDataState = JSON.parse(JSON.stringify(appData));
+                            appData = mergeDeep(appData, aiSuggestedChanges);
+                            renderAll();
+
+                            // --- THAY ĐỔI QUAN TRỌNG: GỌI HÀM CUỘN MÀN HÌNH ---
+                            scrollToModifiedElement(aiSuggestedChanges);
+
+                            const feedbackMessage = await getAIFeedbackMessage(userMessage);
+                            showFeedbackBar(feedbackMessage, userMessage);
+
+                            windowEl.classList.add('hidden');
+                            saveDataToFirebase();
+                        }
+                    } else {
+                        addMessageToChatbox("Rất tiếc, đã có lỗi khi xử lý lệnh của bạn.", "ai", true);
                     }
+                } else { // Nếu là 'chat'
+                    const memoryToSave = await extractMemoryFromChat(userMessage);
+                    if (memoryToSave) {
+                        if (!appData.aiMemory.facts.includes(memoryToSave)) {
+                            appData.aiMemory.facts.push(memoryToSave);
+                            saveDataToFirebase();
+                        }
+                    }
+                    const aiResponse = await getAIChatResponse(userMessage, chatHistory, appData.aiMemory);
+                    typingMessageDiv.remove();
+                    addMessageToChatbox(aiResponse, "ai", true);
                 }
-
-                // Bước 3: Hiển thị câu trả lời của AI với hiệu ứng gõ chữ
-                const aiResponse = await getAIChatResponse(userMessage, chatHistory, appData.aiMemory);
-                addMessageToChatbox(aiResponse, "ai", true); // Kích hoạt hiệu ứng gõ chữ ở đây
+            } catch (error) {
+                console.error("Lỗi trong handleSendMessage:", error);
+                typingMessageDiv.remove();
+                addMessageToChatbox("Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.", "ai", true);
             }
         }
-
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleSendMessage();
         });
     }
+
+    function scrollToModifiedElement(changes) {
+        if (!changes) return;
+
+        let targetElementId = null;
+
+        if (changes.schedule) {
+            targetElementId = 'schedule-section';
+        } else if (changes.subjects) {
+            targetElementId = 'subjects-section';
+        } else if (changes.studyStrategies) {
+            targetElementId = 'strategies-section';
+        } else if (changes.checklist) {
+            targetElementId = 'checklist-card';
+        } else if (changes.importantNotes) {
+            targetElementId = 'notes-section';
+        } else if (changes.config) {
+            if (changes.config.totalWeeklyHoursTarget !== undefined) {
+                targetElementId = 'time-allocation-card';
+            } else if (changes.config.goal !== undefined) {
+                targetElementId = 'goal-card';
+            } else {
+                targetElementId = 'header-details';
+            }
+        }
+
+        if (targetElementId) {
+            const element = document.getElementById(targetElementId);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                element.classList.add('highlight-update');
+
+                setTimeout(() => {
+                    element.classList.remove('highlight-update');
+                }, 2500);
+            }
+        }
+    }
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
 });
-
-
 
