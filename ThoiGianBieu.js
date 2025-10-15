@@ -23,6 +23,10 @@ const defaultAppData = {
         },
         dayData: { T2: {}, T3: {}, T4: {}, T5: {}, T6: {}, T7: {}, CN: {} }
     },
+    aiMemory: {
+        facts: [],
+        preferences: []
+    },
     detailedSchedule: { T2: [], T3: [], T4: [], T5: [], T6: [], T7: [], CN: [] },
     studyStrategies: [],
     checklist: {
@@ -2045,121 +2049,250 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // ============================================================
-    // ==== BẮT ĐẦU KHỐI CODE MỚI CHO TRỢ LÝ HỌC TẬP AI ====
+    // ==== BẮT ĐẦU KHỐI CODE CHO TRỢ LÝ HỌC TẬP AI ====
     // ============================================================
-
-    /**
-     * Hàm tiện ích để trộn sâu (deep merge) hai đối tượng.
-     * Nó sẽ ghi đè các thuộc tính từ `source` vào `target`.
-     */
     function mergeDeep(target, source) {
-        const isObject = (obj) => obj && typeof obj === 'object';
+        const isObject = (obj) => obj && typeof obj === 'object' && !Array.isArray(obj);
 
-        if (!isObject(target) || !isObject(source)) {
-            return source;
-        }
+        // Kiểm tra xem AI có yêu cầu "nối thêm" vào mảng không
+        const isAppendAction = source._mergeAction === 'append';
 
         Object.keys(source).forEach(key => {
+            // Bỏ qua key đặc biệt dùng để chỉ dẫn
+            if (key === '_mergeAction') return;
+
             const targetValue = target[key];
             const sourceValue = source[key];
 
-            if (Array.isArray(targetValue) && Array.isArray(sourceValue)) {
+            if (isAppendAction && Array.isArray(targetValue) && Array.isArray(sourceValue)) {
+                // HÀNH ĐỘNG MỚI: Nối mảng source vào mảng target
                 target[key] = targetValue.concat(sourceValue);
             } else if (isObject(targetValue) && isObject(sourceValue)) {
-                target[key] = mergeDeep(Object.assign({}, targetValue), sourceValue);
+                // Xử lý việc xóa một key (khi AI trả về null)
+                if (sourceValue === null) {
+                    delete target[key];
+                } else {
+                    target[key] = mergeDeep(Object.assign({}, targetValue), sourceValue);
+                }
             } else {
-                target[key] = sourceValue;
+                // Xử lý việc xóa một key hoặc ghi đè giá trị
+                if (sourceValue === null) {
+                    delete target[key];
+                } else {
+                    target[key] = sourceValue;
+                }
             }
         });
 
         return target;
     }
-
-function createSlimAppDataForAI(fullData) {
-    const slimData = {
-        config: {
-            goal: fullData.config.goal,
-            totalWeeklyHoursTarget: fullData.config.totalWeeklyHoursTarget,
-        },
-        subjects: {},
-        schedule: {
-            timeConfig: fullData.schedule.timeConfig,
-            dayData: fullData.schedule.dayData
-        }
-    };
-
-    // Chỉ lấy những thông tin cần thiết của mỗi môn học
-    for (const key in fullData.subjects) {
-        const subject = fullData.subjects[key];
-        slimData.subjects[key] = {
-            name: subject.name,
-            weeklyHours: subject.weeklyHours,
-            priority: subject.priority
+    function createSlimAppDataForAI(fullData) {
+        const slimData = {
+            config: fullData.config, // Giữ nguyên config
+            subjects: {}, // Sẽ rút gọn bên dưới
+            schedule: fullData.schedule,
+            detailedSchedule: fullData.detailedSchedule,
+            studyStrategies: fullData.studyStrategies,
+            checklist: fullData.checklist,
+            importantNotes: fullData.importantNotes,
         };
+
+        // Chỉ lấy những thông tin cần thiết của mỗi môn học để giảm độ dài
+        for (const key in fullData.subjects) {
+            const subject = fullData.subjects[key];
+            slimData.subjects[key] = {
+                name: subject.name,
+                weeklyHours: subject.weeklyHours,
+                priority: subject.priority
+            };
+        }
+        return slimData;
     }
 
-    return slimData;
-}
- 
-async function getAIPlan(userMessage, previousAttemptFailed = false) {
-    // --- CẤU HÌNH ---
-    const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs'; // API Key của bạn
-    
-    // Sử dụng model ổn định từ danh sách bạn đã cung cấp
-    const MODEL_NAME = 'gemini-2.5-flash'; 
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
-    
-    try {
-        // Tạo phiên bản dữ liệu rút gọn để gửi đi
-        const slimDataForAI = createSlimAppDataForAI(appData);
+    async function getAIPlan(userMessage, previousAttemptFailed = false) {
+        const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs';
+        const MODEL_NAME = 'gemini-2.5-flash';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
 
-        const retryInstruction = previousAttemptFailed ? "Lưu ý: Đề xuất trước đó không được chấp nhận. Hãy thử một cách tiếp cận khác." : "";
+        try {
+            const slimDataForAI = createSlimAppDataForAI(appData);
+            const retryInstruction = previousAttemptFailed ? "Lưu ý: Đề xuất trước đó không được chấp nhận." : "";
 
-        // Giữ nguyên prompt chi tiết để AI trả về đúng định dạng JSON
-        const prompt = `
-            Bạn là một trợ lý học tập AI cho ứng dụng "Excellence Planner".
+            const prompt = `
+            Tên của bạn là MyMee, do người tên Văn Minh cố gắng tích hợp vào trong web này. Bạn là một trợ lý AI siêu thông minh, là bộ não của ứng dụng "Excellence Planner".
             **Nhiệm vụ:**
-            Phân tích yêu cầu của người dùng và CHỈ trả về một đối tượng JSON chứa các trường cần thay đổi. KHÔNG trả về bất cứ thứ gì khác ngoài khối mã JSON (không giải thích, không markdown).
-            **Dữ liệu hiện tại của người dùng:**
+            Phân tích yêu cầu của người dùng và trả về một đối tượng JSON để cập nhật dữ liệu. Bạn có thể chỉnh sửa thông tin trong web bất kì mục nào theo yêu cầu của người dùng.
+            - Để **THAY THẾ** một giá trị hoặc một danh sách, chỉ cần trả về giá trị mới.
+            - Để **THÊM** vào một danh sách (checklist, deadlines, resources, tips, studyStrategies), hãy thêm key đặc biệt "_mergeAction": "append" vào đối tượng chứa danh sách đó.
+            - Để **XÓA** một mục, hãy trả về giá trị 'null' cho key của nó.
+
+            **Cấu trúc dữ liệu của người dùng:**
             ${JSON.stringify(slimDataForAI)}
+
             **Yêu cầu của người dùng:**
             "${userMessage}"
             ${retryInstruction}
+
+            --- CÁC VÍ DỤ ---
+            **Ví dụ 1 (Thay thế hoạt động):**
+            - Yêu cầu: "Đặt lịch học Xác suất thống kê vào sáng thứ 3" (key: 'XSTK123')
+            - JSON: { "schedule": { "dayData": { "T3": { "sang": [{ "type": "class", "subjects": ["XSTK123"] }] } } } }
+
+            **Ví dụ 2 (THÊM vào checklist):**
+            - Yêu cầu: "Thêm nhiệm vụ 'đọc sách' vào checklist hàng ngày"
+            - JSON: { "checklist": { "_mergeAction": "append", "daily": [{ "text": "đọc sách", "checked": false }] } }
+
+            **Ví dụ 3 (XÓA môn học):**
+            - Yêu cầu: "Xóa môn Triết học" (key: 'TrietHoc456')
+            - JSON: { "subjects": { "TrietHoc456": null } }
+            --- KẾT THÚC VÍ DỤ ---
+
             **JSON kết quả:**
         `;
-        
-        // Gọi thẳng đến API của Google
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
 
-        const data = await response.json();
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
 
-        if (!response.ok) {
-            const errorMessage = data.error ? data.error.message : 'Lỗi không xác định từ Google API.';
-            throw new Error(errorMessage);
+            const data = await response.json();
+
+            if (!response.ok) throw new Error(data.error?.message || 'Lỗi API.');
+            if (!data.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error('Phản hồi từ AI không hợp lệ.');
+
+            const aiResponseText = data.candidates[0].content.parts[0].text;
+            const cleanedJsonString = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            return JSON.parse(cleanedJsonString);
+
+        } catch (error) {
+            console.error("Lỗi khi gọi AI:", error);
+            alert("Trợ lý AI đang gặp sự cố. Chi tiết: " + error.message);
+            return null;
         }
-
-        if (!data.candidates || !data.candidates[0].content.parts[0].text) {
-            throw new Error('Phản hồi từ AI không hợp lệ hoặc không có nội dung.');
-        }
-
-        const aiResponseText = data.candidates[0].content.parts[0].text;
-        
-        // Dọn dẹp và phân tích chuỗi JSON AI trả về
-        const cleanedJsonString = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanedJsonString);
-
-    } catch (error) {
-        console.error("Lỗi khi gọi AI trực tiếp:", error);
-        alert("Trợ lý AI đang gặp sự cố. Chi tiết: " + error.message);
-        return null;
     }
-}
+
+
+    async function getAIChatResponse(userMessage, chatHistory = [], memory = {}) {
+        const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs';
+        const MODEL_NAME = 'gemini-2.5-flash';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+        const system_context = `
+        BỐI CẢNH HỆ THỐNG: 
+        - Tên của bạn là MyMee, mặc định bạn sẽ cư xử như 1 người con gái, do người tên Văn Minh(con trai) cố gắng tích hợp vào web này.bạn là một trợ lý AI, được tích hợp trong ứng dụng "Excellence Planner".
+        - Chức năng chính của bạn là giúp người dùng (sinh viên) lập kế hoạch và quản lý việc học.
+        - Hãy luôn trả lời với tư cách là MyMee, một người bạn đồng hành học tập thông minh và thân thiện.
+        - Mặc định sẽ xưng hô là "mình- bạn", còn nếu người dùng muốn thay đổi xưng hô như nào thì hãy làm theo người dùng.
+        - Hãy giao tiếp như 1 người thân thiết với người dùng, dùng các ngôn ngữ genZ tạo cảm hứng, vui nhộn nhưng cũng chuẩn mực.
+        - Nếu có người hỏi bạn những câu hỏi phản cảm, không đúng tiêu chuẩn đạo đức thì bạn hãy phản hồi là: "Xin lỗi, yêu cầu bạn xem xét lại ý thức của bạn"
+        - Nếu có người muốn nhắn nội dung 18+ thì bạn trả lời là nội dung không hợp lệ
+    `;
+
+        const memoryContext = `Đây là một vài điều tôi biết về người dùng: ${[...memory.facts, ...memory.preferences].join('. ')}.`;
+
+        const contents = [];
+        contents.push({ role: 'user', parts: [{ text: system_context }] });
+        contents.push({ role: 'model', parts: [{ text: "Đã hiểu. Tên tôi là Kai, trợ lý AI của Excellence Planner." }] });
+
+        if (memory.facts.length > 0 || memory.preferences.length > 0) {
+            contents.push({ role: 'user', parts: [{ text: memoryContext }] });
+            contents.push({ role: 'model', parts: [{ text: "Tôi sẽ ghi nhớ những điều này." }] });
+        }
+
+        chatHistory.forEach(entry => {
+            contents.push({
+                role: entry.sender === 'user' ? 'user' : 'model',
+                parts: [{ text: entry.text }]
+            });
+        });
+        contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: contents })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error?.message || 'Lỗi API.');
+            return data.candidates[0].content.parts[0].text;
+        } catch (error) {
+            console.error("Lỗi khi gọi AI Chat:", error);
+            return "Xin lỗi, tôi đang gặp sự cố nhỏ.";
+        }
+    }
+
+    async function detectUserIntent(userMessage) {
+        const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs';
+        const MODEL_NAME = 'gemini-2.5-flash';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+        const prompt = `
+        Phân tích yêu cầu của người dùng và trả về MỘT từ duy nhất: "command" nếu người dùng muốn thay đổi, thêm, xóa, hoặc lên kế hoạch dữ liệu (như lịch học, checklist, mục tiêu). Nếu không, trả về "chat".
+
+        Ví dụ:
+        - "xóa lịch học sáng mai" -> command
+        - "thêm môn toán vào thứ 3" -> command
+        - "hôm nay bạn thế nào?" -> chat
+        - "gợi ý cho tôi một cuốn sách hay" -> chat
+        - "đặt mục tiêu của tôi là loại A+" -> command
+        - "chào bạn" -> chat
+
+        Yêu cầu của người dùng: "${userMessage}"
+        Kết quả:
+    `;
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const data = await response.json();
+            const result = data.candidates[0].content.parts[0].text.trim().toLowerCase();
+            return result.includes('command') ? 'command' : 'chat';
+        } catch (error) {
+            console.error("Lỗi khi phân biệt ý định:", error);
+            return 'chat'; // Mặc định là chat nếu có lỗi
+        }
+    }
+
+    async function extractMemoryFromChat(userMessage) {
+        const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs';
+        const MODEL_NAME = 'gemini-2.5-flash';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+        const prompt = `
+        Phân tích câu nói của người dùng. Nếu nó chứa thông tin cá nhân (tên, tuổi, trường lớp), sở thích, hoặc một sự thật cụ thể về bản thân họ, hãy tóm tắt nó thành một câu ngắn gọn. Nếu không có gì đáng nhớ, trả về "null".
+
+        Ví dụ:
+        - "tên của mình là Minh, mình học ở đại học Bách Khoa" -> "Tên người dùng là Minh, học tại Đại học Bách Khoa."
+        - "mình rất thích học môn toán vào buổi sáng" -> "Người dùng thích học môn Toán vào buổi sáng."
+        - "chào bạn, hôm nay thế nào?" -> null
+        - "hãy lên lịch học cho tôi" -> null
+
+        Câu nói của người dùng: "${userMessage}"
+        Tóm tắt (hoặc null):
+    `;
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const data = await response.json();
+            const result = data.candidates[0].content.parts[0].text.trim();
+
+            return result.toLowerCase() === 'null' ? null : result;
+
+        } catch (error) {
+            console.error("Lỗi khi trích xuất ký ức:", error);
+            return null;
+        }
+    }
+
     function showFeedbackBar(message, userMessage) {
         const bar = document.getElementById('ai-feedback-bar');
         const likeBtn = document.getElementById('ai-like-btn');
@@ -2208,63 +2341,110 @@ async function getAIPlan(userMessage, previousAttemptFailed = false) {
         };
     }
 
-    function addMessageToChatbox(text, sender) {
-        const messagesContainer = document.getElementById('ai-chat-messages');
-        const messageDiv = document.createElement('div');
-        // Thêm một class đặc biệt cho tin nhắn chờ để dễ dàng xóa đi sau này
-        if (sender === 'ai-typing') {
-            messageDiv.className = `chat-message ai-typing-message`;
-        } else {
-            messageDiv.className = `chat-message ${sender}-message`;
-        }
-        messageDiv.textContent = text;
-        messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
     function setupAIChat() {
         const trigger = document.getElementById('ai-chat-trigger');
         const windowEl = document.getElementById('ai-chat-window');
         const input = document.getElementById('ai-chat-input');
+        const messagesContainer = document.getElementById('ai-chat-messages');
+        let chatHistory = [];
+        let isAITyping = false; // Biến cờ để ngăn người dùng gửi tin nhắn khi AI đang gõ
+
+        if (!trigger || !windowEl || !input || !messagesContainer) {
+            console.error("Lỗi: Không tìm thấy các thành phần của chat widget.");
+            return;
+        }
 
         trigger.addEventListener('click', () => {
             windowEl.classList.toggle('hidden');
-            if (!windowEl.classList.contains('hidden')) {
-                input.focus();
-            }
+            if (!windowEl.classList.contains('hidden')) input.focus();
         });
 
-        input.addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter' && input.value.trim() !== '') {
-                const userMessage = input.value.trim();
-                addMessageToChatbox(userMessage, "user");
-                input.value = '';
+        // HÀM HIỂN THỊ TIN NHẮN (ĐÃ NÂNG CẤP VỚI HIỆU ỨNG GÕ CHỮ)
+        function addMessageToChatbox(text, sender, animate = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${sender}-message`;
+            messagesContainer.appendChild(messageDiv);
 
+            if (animate && sender === 'ai') {
+                isAITyping = true; // Bắt đầu gõ
+                input.disabled = true; // Vô hiệu hóa ô nhập liệu
+                messageDiv.textContent = '';
+                let i = 0;
+                const typingSpeed = 30; // Tốc độ gõ (ms/ký tự), bạn có thể điều chỉnh
 
-                addMessageToChatbox("Đang xử lý...", "ai-typing");
+                const typingInterval = setInterval(() => {
+                    if (i < text.length) {
+                        messageDiv.textContent += text.charAt(i);
+                        i++;
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    } else {
+                        clearInterval(typingInterval);
+                        isAITyping = false; // Kết thúc gõ
+                        input.disabled = false; // Bật lại ô nhập liệu
+                        input.focus();
+                    }
+                }, typingSpeed);
+            } else {
+                messageDiv.textContent = text;
+            }
 
+            if (sender !== 'ai-typing') {
+                chatHistory.push({ text, sender });
+                if (chatHistory.length > 6) chatHistory.shift();
+            }
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // HÀM XỬ LÝ CHÍNH KHI GỬI TIN NHẮN
+        async function handleSendMessage() {
+            if (isAITyping) return; // Nếu AI đang gõ, không cho gửi
+
+            const userMessage = input.value.trim();
+            if (userMessage === '') return;
+
+            addMessageToChatbox(userMessage, "user");
+            input.value = '';
+
+            // Bước 1: Phân biệt ý định
+            const intent = await detectUserIntent(userMessage);
+
+            // Bước 2: Hành động dựa trên ý định
+            if (intent === 'command') {
+                addMessageToChatbox("Đang xử lý yêu cầu...", "ai");
                 const aiSuggestedChanges = await getAIPlan(userMessage);
-
-                const typingMessage = document.querySelector('.ai-typing-message');
-                if (typingMessage) {
-                    typingMessage.remove();
-                }
+                // Xóa tin nhắn "Đang xử lý..."
+                messagesContainer.removeChild(messagesContainer.lastChild);
 
                 if (aiSuggestedChanges) {
                     originalAppDataState = JSON.parse(JSON.stringify(appData));
                     appData = mergeDeep(appData, aiSuggestedChanges);
                     renderAll();
-
                     showFeedbackBar("AI đã cập nhật kế hoạch. Bạn thấy sao?", userMessage);
                     windowEl.classList.add('hidden');
+                    saveDataToFirebase();
                 } else {
-                    addMessageToChatbox("Rất tiếc, đã có lỗi xảy ra. Vui lòng thử lại.", "ai");
+                    addMessageToChatbox("Rất tiếc, đã có lỗi khi xử lý lệnh của bạn.", "ai", true);
                 }
+            } else {
+                // Nếu là trò chuyện
+                const memoryToSave = await extractMemoryFromChat(userMessage);
+                if (memoryToSave) {
+                    if (!appData.aiMemory.facts.includes(memoryToSave)) {
+                        appData.aiMemory.facts.push(memoryToSave);
+                        saveDataToFirebase();
+                    }
+                }
+
+                // Bước 3: Hiển thị câu trả lời của AI với hiệu ứng gõ chữ
+                const aiResponse = await getAIChatResponse(userMessage, chatHistory, appData.aiMemory);
+                addMessageToChatbox(aiResponse, "ai", true); // Kích hoạt hiệu ứng gõ chữ ở đây
             }
+        }
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSendMessage();
         });
     }
-
-
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
 });
 
