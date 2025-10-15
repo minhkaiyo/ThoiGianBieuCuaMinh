@@ -221,6 +221,8 @@ document.addEventListener('DOMContentLoaded', function () {
         setupOnlineClock();
         renderFooter();
         // setupAIChat(); 
+        setupThemeControls();
+        setupAIChat();
     }
 
     function renderHeaderAndStats() {
