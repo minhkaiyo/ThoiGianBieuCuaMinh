@@ -1403,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <textarea id="resources-notes" class="modal-input h-24">${resources.join('\n')}</textarea>
                 </div>
                 <div>
-                    <label for="tips-notes" class="font-bold text-lg text-green-700">💪 Tips Hiệu Quả</label>
+                    <label for="tips-notes" class="font-bold text-lg text-green-700">Tâm sự/Ghi chú</label>
                     <p class="text-xs text-gray-500 mb-2">Mỗi mục trên một dòng.</p>
                     <textarea id="tips-notes" class="modal-input h-24">${tips.join('\n')}</textarea>
                 </div>
@@ -2447,5 +2447,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
 });
+
 
 
