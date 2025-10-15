@@ -2075,81 +2075,91 @@ document.addEventListener('DOMContentLoaded', function () {
         return target;
     }
 
-    function createSlimAppDataForAI(fullData) {
-        const slimData = {
-            config: {
-                goal: fullData.config.goal,
-                totalWeeklyHoursTarget: fullData.config.totalWeeklyHoursTarget,
-            },
-            subjects: {},
-            schedule: {
-                timeConfig: fullData.schedule.timeConfig,
-                dayData: fullData.schedule.dayData
-            }
+function createSlimAppDataForAI(fullData) {
+    const slimData = {
+        config: {
+            goal: fullData.config.goal,
+            totalWeeklyHoursTarget: fullData.config.totalWeeklyHoursTarget,
+        },
+        subjects: {},
+        schedule: {
+            timeConfig: fullData.schedule.timeConfig,
+            dayData: fullData.schedule.dayData
+        }
+    };
+
+    // Chỉ lấy những thông tin cần thiết của mỗi môn học
+    for (const key in fullData.subjects) {
+        const subject = fullData.subjects[key];
+        slimData.subjects[key] = {
+            name: subject.name,
+            weeklyHours: subject.weeklyHours,
+            priority: subject.priority
         };
-
-        for (const key in fullData.subjects) {
-            const subject = fullData.subjects[key];
-            slimData.subjects[key] = {
-                name: subject.name,
-                weeklyHours: subject.weeklyHours,
-                priority: subject.priority
-            };
-        }
-
-        return slimData;
     }
 
-    async function getAIPlan(userMessage, previousAttemptFailed = false) {
-        // ĐÃ SỬA LỖI: Xóa dấu gạch chéo "/" ở cuối URL để đảm bảo tính tương thích.
-        const WORKER_URL = 'https://thoigianbieu-ai-proxy.minhkaiyo1.workers.dev';
+    return slimData;
+}
+ 
+async function getAIPlan(userMessage, previousAttemptFailed = false) {
+    // --- CẤU HÌNH ---
+    const API_KEY = 'AIzaSyCX3DyUyMXH27V89LNIY4Z8Vx3S9-XJGgs'; // API Key của bạn
+    
+    // Sử dụng model ổn định từ danh sách bạn đã cung cấp
+    const MODEL_NAME = 'gemini-2.5-flash'; 
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+    
+    try {
+        // Tạo phiên bản dữ liệu rút gọn để gửi đi
+        const slimDataForAI = createSlimAppDataForAI(appData);
 
-        try {
-            // ĐÃ TỐI ƯU HÓA: Tạo một phiên bản dữ liệu rút gọn trước khi gửi đi.
-            const slimDataForAI = createSlimAppDataForAI(appData);
+        const retryInstruction = previousAttemptFailed ? "Lưu ý: Đề xuất trước đó không được chấp nhận. Hãy thử một cách tiếp cận khác." : "";
 
-            const response = await fetch(WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userMessage: userMessage,
-                    // Chỉ gửi dữ liệu đã được rút gọn
-                    appData: slimDataForAI,
-                    previousAttemptFailed: previousAttemptFailed
-                })
-            });
+        // Giữ nguyên prompt chi tiết để AI trả về đúng định dạng JSON
+        const prompt = `
+            Bạn là một trợ lý học tập AI cho ứng dụng "Excellence Planner".
+            **Nhiệm vụ:**
+            Phân tích yêu cầu của người dùng và CHỈ trả về một đối tượng JSON chứa các trường cần thay đổi. KHÔNG trả về bất cứ thứ gì khác ngoài khối mã JSON (không giải thích, không markdown).
+            **Dữ liệu hiện tại của người dùng:**
+            ${JSON.stringify(slimDataForAI)}
+            **Yêu cầu của người dùng:**
+            "${userMessage}"
+            ${retryInstruction}
+            **JSON kết quả:**
+        `;
+        
+        // Gọi thẳng đến API của Google
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
 
-            const data = await response.json();
+        const data = await response.json();
 
-            if (!response.ok || data.error) {
-                // Cung cấp thông báo lỗi chi tiết hơn
-                const errorMessage = data.error ? data.error.message || data.error : 'Lỗi không xác định từ máy chủ proxy.';
-                throw new Error(errorMessage);
-            }
-
-            if (!data.candidates || !data.candidates[0].content.parts[0].text) {
-                throw new Error('Phản hồi từ AI không hợp lệ hoặc không có nội dung.');
-            }
-
-            const aiResponseText = data.candidates[0].content.parts[0].text;
-
-            // Thêm một bước kiểm tra để đảm bảo AI trả về JSON hợp lệ
-            try {
-                // Loại bỏ các ký tự markdown ```json và ``` mà AI có thể trả về
-                const cleanedJsonString = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-                return JSON.parse(cleanedJsonString);
-            } catch (parseError) {
-                console.error("Lỗi phân tích JSON từ AI:", aiResponseText);
-                throw new Error('AI đã trả về một định dạng không hợp lệ.');
-            }
-
-        } catch (error) {
-            console.error("Lỗi khi gọi AI qua Cloudflare Worker:", error);
-            alert("Trợ lý AI đang gặp sự cố. Chi tiết: " + error.message);
-            return null;
+        if (!response.ok) {
+            const errorMessage = data.error ? data.error.message : 'Lỗi không xác định từ Google API.';
+            throw new Error(errorMessage);
         }
-    }
 
+        if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+            throw new Error('Phản hồi từ AI không hợp lệ hoặc không có nội dung.');
+        }
+
+        const aiResponseText = data.candidates[0].content.parts[0].text;
+        
+        // Dọn dẹp và phân tích chuỗi JSON AI trả về
+        const cleanedJsonString = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanedJsonString);
+
+    } catch (error) {
+        console.error("Lỗi khi gọi AI trực tiếp:", error);
+        alert("Trợ lý AI đang gặp sự cố. Chi tiết: " + error.message);
+        return null;
+    }
+}
     function showFeedbackBar(message, userMessage) {
         const bar = document.getElementById('ai-feedback-bar');
         const likeBtn = document.getElementById('ai-like-btn');
