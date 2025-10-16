@@ -28,6 +28,12 @@ const defaultAppData = {
         preferences: []
     },
     detailedSchedule: { T2: [], T3: [], T4: [], T5: [], T6: [], T7: [], CN: [] },
+    studyStrategies: [
+        { emoji: '🍅', title: 'Pomodoro', description: 'Học tập trung trong 25 phút, sau đó nghỉ 5 phút. Lặp lại 4 lần rồi nghỉ dài hơn.' },
+        { emoji: '🧑‍🏫', title: 'Feynman Technique', description: 'Học một chủ đề bằng cách cố gắng giải thích nó bằng những thuật ngữ đơn giản nhất có thể.' },
+        { emoji: '🔁', title: 'Spaced Repetition', description: 'Ôn tập lại thông tin vào những khoảng thời gian ngày càng tăng để ghi nhớ lâu dài.' },
+        { emoji: '✍️', title: 'Active Recall', description: 'Chủ động gợi lại thông tin từ trí nhớ thay vì chỉ đọc lại một cách thụ động.' }
+    ],
     studyStrategies: [],
     checklist: {
         lastDailyReset: null,
@@ -38,8 +44,9 @@ const defaultAppData = {
     importantNotes: {
         deadlines: [],
         resources: [],
-        tips: []
+        // tips: []
     },
+    dailyJournal: {},
     placeholders: {
         subjects: "Chưa có môn học nào. Nhấn vào ô 'Môn học' để bắt đầu thêm.",
         strategies: "Chưa có chiến lược nào. Nhấn nút ✏️ để thêm.",
@@ -121,12 +128,11 @@ document.addEventListener('mouseenter', () => {
 
 
 document.addEventListener('DOMContentLoaded', function () {
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const mainContent = document.getElementById('main-content');
     const authContainer = document.getElementById('auth-container');
     if (!authContainer) return;
     const authRoot = ReactDOM.createRoot(authContainer);
     setupAIChat();
+    setupModalListeners();
 
     const helpModal = document.getElementById('help-modal');
     const closeHelpBtn = document.getElementById('close-help-modal-btn');
@@ -164,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <ul>
                     <li><strong>Checklist:</strong> Ghi lại các nhiệm vụ cần làm hàng ngày và hàng tuần. Nhấn vào ô vuông để đánh dấu hoàn thành. Các nhiệm vụ sẽ tự động reset vào đầu ngày/đầu tuần.</li>
                     <li><strong>Chiến Lược Học Tập:</strong> Nơi ghi lại các phương pháp học hiệu quả (ví dụ: Pomodoro, Feynman) để bạn luôn ghi nhớ và áp dụng.</li>
-                    <li><strong>Lưu Ý Quan Trọng:</strong> Phân loại các ghi chú thành 3 mục: Deadline, Tài nguyên học tập và Tips hiệu quả để dễ dàng theo dõi.</li>
+                    <li><strong>Lưu Ý Quan Trọng:</strong> Phân loại các ghi chú thành 3 mục: Deadline, Tài nguyên học tập và Ghi chú hôm nay để dễ dàng theo dõi.</li>
                     <li><strong>Chỉnh sửa:</strong> Nhấn vào biểu tượng cây bút <strong>✏️</strong> ở mỗi mục để mở bảng chỉnh sửa tương ứng.</li>
                 </ul>
             `
@@ -178,11 +184,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     <li><strong>Ra lệnh:</strong> Bạn có thể yêu cầu MyMee thực hiện các tác vụ như "Thêm môn Giải tích vào sáng thứ 3", "Xóa lịch học chiều thứ 5", hoặc "Đặt mục tiêu của tôi là A+".</li>
                     <li><strong>Trò chuyện:</strong> Bạn cũng có thể hỏi MyMee các câu hỏi thông thường hoặc nhờ tư vấn về việc học.</li>
                 </ul>
+                <ul><strong>    TẨT CẢ CÁC MỤC TRONG WEB ĐỀU CÓ THỂ THAY ĐỔI BỞI MYMEE</strong></ul>
+                <p>    Hãy thử và khám phá các khả năng của MyMee nhé!</p>
             `
         }
     };
 
-    // Hàm để hiển thị menu chính
     function renderHelpMenu() {
         const menuTitle = `<h3 class="panel-title text-2xl font-bold mb-6 text-center">Bạn cần giúp đỡ về mục nào?</h3>`;
         const menuButtons = Object.keys(helpTopics).map(key => {
@@ -388,20 +395,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
     function renderScheduleHead() {
         const scheduleHead = document.getElementById('schedule-head');
         const dayKeyMap = { 1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7', 0: 'CN' };
         const todayKey = dayKeyMap[new Date().getDay()];
 
         let headHTML = '<tr>';
-        headHTML += '<th class="transparent-cell p-3 text-left font-bold rounded-tl-xl border-b">⏰ Giờ</th>';
+        // Thêm lớp 'glow-border' vào đây
+        headHTML += '<th class="transparent-cell p-3 text-left font-bold rounded-tl-xl border-b glow-border">⏰ Giờ</th>';
 
         DAYS_CONFIG.forEach((day, index) => {
             const isLastHeader = index === DAYS_CONFIG.length - 1;
             const cornerClass = isLastHeader ? 'rounded-tr-xl' : '';
             const cellClass = (day.key === todayKey) ? 'current-day-header' : 'transparent-cell';
-
-            headHTML += `<th class="${cellClass} ${cornerClass} p-3 text-center font-bold border-b">${day.name}</th>`;
+            // Và thêm lớp 'glow-border' vào đây
+            headHTML += `<th class="${cellClass} ${cornerClass} p-3 text-center font-bold border-b glow-border">${day.name}</th>`;
         });
 
         headHTML += '</tr>';
@@ -442,14 +451,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const isLastRow = index === timeSlotOrder.length - 1;
             const cornerClass = isLastRow ? 'rounded-bl-xl' : '';
 
-            row.innerHTML = `<td class="transparent-cell p-3 font-semibold border-b ${cornerClass}">${slotConfig.name}<br><span class="text-xs text-gray-500">${slotConfig.time}</span></td>`;
+
+            row.innerHTML = `<td class="transparent-cell p-3 font-semibold border-b glow-border ${cornerClass}">${slotConfig.name}<br><span class="text-xs text-gray-500">${slotConfig.time}</span></td>`;
 
             DAYS_CONFIG.forEach(day => {
                 const dayKey = day.key;
                 const cell = document.createElement('td');
-                // === BẮT ĐẦU THAY ĐỔI ===
-                // Thêm data-day-key và data-slot-key để định danh ô
-                cell.className = 'schedule-cell p-3 border-b relative cursor-pointer hover:bg-black/5 transition-colors';
+                cell.className = 'schedule-cell p-3 border-b glow-border relative cursor-pointer hover:bg-black/5 transition-colors';
                 cell.dataset.dayKey = dayKey;
                 cell.dataset.slotKey = slotKey;
                 // === KẾT THÚC THAY ĐỔI ===
@@ -549,15 +557,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const deadlinesHTML = appData.importantNotes.deadlines.length > 0 ? appData.importantNotes.deadlines.map(note => `<li>• ${note}</li>`).join('') : '<li>Không có</li>';
         const resourcesHTML = appData.importantNotes.resources.length > 0 ? appData.importantNotes.resources.map(note => `<li>• ${note}</li>`).join('') : '<li>Không có</li>';
-        const tipsHTML = appData.importantNotes.tips.length > 0 ? appData.importantNotes.tips.map(note => `<li>• ${note}</li>`).join('') : '<li>Không có</li>';
+        const todayString = new Date().toISOString().split('T')[0];
+        const todaysJournal = appData.dailyJournal && appData.dailyJournal[todayString] ? appData.dailyJournal[todayString] : '';
 
-        const notesContent = `
-            <div class="grid md:grid-cols-3 gap-4">
-                <div class="bg-red-500/10 border-l-4 border-red-500 p-4 rounded"><h4 class="font-bold text-red-700 mb-2">🚨 Deadline Gần</h4><ul class="text-sm space-y-1">${deadlinesHTML}</ul></div>
-                <div class="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded"><h4 class="font-bold text-blue-700 mb-2">📚 Tài Nguyên Học</h4><ul class="text-sm space-y-1">${resourcesHTML}</ul></div>
-                <div class="bg-green-500/10 border-l-4 border-green-500 p-4 rounded"><h4 class="font-bold text-green-700 mb-2">✏️ Tâm sự/Ghi chú</h4><ul class="text-sm space-y-1">${tipsHTML}</ul></div>
+        const journalHTML = `
+        <div class="bg-green-500/10 border-l-4 border-green-500 p-4 rounded h-full flex flex-col">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-bold text-green-700">✏️ Ghi chú hôm nay</h4>
+                <button id="view-journal-history-btn" class="p-2 rounded-full hover:bg-gray-200 transition" title="Xem lịch sử ghi chú">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                    </svg>
+                </button>
             </div>
-        `;
+            <textarea id="daily-journal-input" class="modal-input flex-grow text-sm p-2 text-gray-800" placeholder="Hôm nay của bạn thế nào?">${todaysJournal}</textarea>
+            <button id="save-journal-btn" class="mt-2 w-full px-4 py-1.5 bg-green-200 text-gray-800 rounded-lg hover:bg-green-300 transition font-semibold text-sm">Lưu lại</button>
+        </div>
+      `;
+        const notesContent = `
+          <div class="grid md:grid-cols-3 gap-4">
+              <div class="bg-red-500/10 border-l-4 border-red-500 p-4 rounded"><h4 class="font-bold text-red-700 mb-2">🚨 Deadline Gần</h4><ul class="text-sm space-y-1">${deadlinesHTML}</ul></div>
+              <div class="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded"><h4 class="font-bold text-blue-700 mb-2">📚 Tài Nguyên Học</h4><ul class="text-sm space-y-1">${resourcesHTML}</ul></div>
+              <div class="md:col-span-1">${journalHTML}</div>
+          </div>
+      `;
 
         container.innerHTML = `
             <div class="grid md:grid-cols-2 gap-6 mb-8">
@@ -1016,49 +1039,6 @@ document.addEventListener('DOMContentLoaded', function () {
         saveAndClose();
     }
 
-    function saveTimeAllocationChanges() {
-        appData.config.totalWeeklyHoursTarget = parseFloat(document.getElementById('total-hours-target').value) || 0;
-        document.querySelectorAll('.time-alloc-input').forEach(input => {
-            const key = input.dataset.subjectKey;
-            if (appData.subjects[key]) {
-                appData.subjects[key].weeklyHours = parseFloat(input.value) || 0;
-            }
-        });
-        saveAndClose();
-    }
-
-    function saveStrategiesChanges() {
-        const newStrategies = [];
-        document.querySelectorAll('#modal-body [data-strategy-index]').forEach(el => {
-            const title = el.querySelector('.strategy-title').value.trim();
-            if (title) {
-                newStrategies.push({
-                    emoji: el.querySelector('.strategy-emoji').value,
-                    title: title,
-                    description: el.querySelector('.strategy-desc').value.trim()
-                });
-            }
-        });
-        appData.studyStrategies = newStrategies;
-        saveAndClose();
-    }
-
-    function saveChecklistChanges() {
-        const dailyText = document.getElementById('daily-checklist-input').value;
-        const weeklyText = document.getElementById('weekly-checklist-input').value;
-
-        const createNewList = (newText, oldList = []) => {
-            const newItems = newText.split('\n').map(item => item.trim()).filter(Boolean);
-            return newItems.map(text => {
-                const oldItem = oldList.find(item => item.text === text);
-                return { text: text, checked: oldItem ? oldItem.checked : false };
-            });
-        };
-
-        appData.checklist.daily = createNewList(dailyText, appData.checklist.daily);
-        appData.checklist.weekly = createNewList(weeklyText, appData.checklist.weekly);
-        saveAndClose();
-    }
 
     function saveDatesChanges() {
         const newStartDate = document.getElementById('start-date-input').value;
@@ -1245,6 +1225,18 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('goal-card')?.addEventListener('click', (e) => { e.preventDefault(); openGoalEditModal(); });
 
         const modal = document.getElementById('edit-modal');
+
+        setTimeout(() => { document.querySelectorAll('.progress-fill').forEach(fill => { fill.style.width = fill.getAttribute('data-width'); }); }, 300);
+        document.body.removeEventListener('click', handleBodyClick);
+        document.body.addEventListener('click', handleBodyClick);
+        document.body.removeEventListener('change', handleChecklistChange);
+        document.body.addEventListener('change', handleChecklistChange);
+    }
+
+    function setupModalListeners() {
+        const modal = document.getElementById('edit-modal');
+        if (modal.dataset.listenerAttached) return;
+
         modal.addEventListener('click', function (e) {
             if (e.target.id === 'edit-modal' || e.target.id === 'close-modal-btn' || e.target.id === 'cancel-btn') {
                 closeModal();
@@ -1281,43 +1273,60 @@ document.addEventListener('DOMContentLoaded', function () {
                 const categories = ['Sinh hoạt', 'Ngoại khóa', 'Tự học', 'Lên lớp', 'Thư viện', 'Nghỉ ngơi', 'Giải trí', 'Đi làm'];
                 const categoryOptions = categories.map(c => `<option value="${c}">${c}</option>`).join('');
                 const newRow = `
-                    <div class="p-3 border rounded-lg grid grid-cols-1 md:grid-cols-4 gap-2 items-center" data-activity-index="${newIndex}">
-                        <input type="text" class="modal-input md:col-span-1 activity-time" placeholder="VD: 8:00-9:00">
-                        <input type="text" class="modal-input md:col-span-2 activity-desc" placeholder="Hoạt động mới">
-                        <select class="modal-select activity-category">${categoryOptions}</select>
-                        <button class="delete-activity-btn bg-red-100 text-red-600 rounded px-2 py-1 text-xs hover:bg-red-200">Xóa</button>
-                    </div>`;
+                        <div class="p-3 border rounded-lg grid grid-cols-1 md:grid-cols-4 gap-2 items-center" data-activity-index="${newIndex}">
+                            <input type="text" class="modal-input md:col-span-1 activity-time" placeholder="VD: 8:00-9:00">
+                            <input type="text" class="modal-input md:col-span-2 activity-desc" placeholder="Hoạt động mới">
+                            <select class="modal-select activity-category">${categoryOptions}</select>
+                            <button class="delete-activity-btn bg-red-100 text-red-600 rounded px-2 py-1 text-xs hover:bg-red-200">Xóa</button>
+                        </div>`;
                 list.insertAdjacentHTML('beforeend', newRow);
             }
 
             const deleteSubjectBtn = e.target.closest('.delete-subject-btn');
-            if (deleteSubjectBtn) {
-                deleteSubjectBtn.closest('[data-subject-key]').remove();
-            }
+            if (deleteSubjectBtn) deleteSubjectBtn.closest('[data-subject-key]').remove();
 
             const deleteStrategyBtn = e.target.closest('.delete-item-btn');
-            if (deleteStrategyBtn) {
-                deleteStrategyBtn.closest('[data-strategy-index]').remove();
-            }
+            if (deleteStrategyBtn) deleteStrategyBtn.closest('[data-strategy-index]').remove();
 
             const deleteSlotActivityBtn = e.target.closest('.delete-slot-activity-btn');
-            if (deleteSlotActivityBtn) {
-                deleteSlotActivityBtn.closest('.slot-activity-form-group').remove();
-            }
+            if (deleteSlotActivityBtn) deleteSlotActivityBtn.closest('.slot-activity-form-group').remove();
 
             const deleteActivityBtn = e.target.closest('.delete-activity-btn');
-            if (deleteActivityBtn) {
-                deleteActivityBtn.closest('[data-activity-index]').remove();
-            }
+            if (deleteActivityBtn) deleteActivityBtn.closest('[data-activity-index]').remove();
 
             const emoji = e.target.closest('.emoji-picker span');
             if (emoji) {
                 const strategyForm = emoji.closest('[data-strategy-index]');
-                const emojiInput = strategyForm.querySelector('.strategy-emoji');
-                if (emojiInput) {
-                    emojiInput.value = emoji.textContent;
+                if (strategyForm) {
+                    strategyForm.querySelector('.strategy-emoji').value = emoji.textContent;
                 }
             }
+
+            // === BẮT ĐẦU ĐOẠN CODE MỚI CHO NHẬT KÝ ===
+            const journalDay = e.target.closest('.journal-day');
+            if (journalDay) {
+                const date = journalDay.dataset.date;
+                const entry = appData.dailyJournal[date];
+                if (entry) {
+                    const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString('vi-VN', {
+                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                    });
+                    const modalBody = document.getElementById('modal-body');
+                    document.getElementById('modal-title').textContent = `Ghi chú ngày ${formattedDate}`;
+                    modalBody.innerHTML = `
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <p class="whitespace-pre-wrap text-gray-800">${entry}</p>
+                            </div>
+                            <button id="back-to-calendar-btn" class="mt-4 w-full text-sm py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Quay lại lịch</button>
+                        `;
+                }
+            }
+
+            if (e.target.id === 'back-to-calendar-btn') {
+                openJournalHistoryModal();
+            }
+            // === KẾT THÚC ĐOẠN CODE MỚI CHO NHẬT KÝ ===
+
         });
 
         modal.addEventListener('input', function (e) {
@@ -1330,22 +1339,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 const displayEl = document.getElementById('total-allocated-display');
                 if (displayEl) {
                     displayEl.textContent = `${totalAllocated.toFixed(1)}h / ${totalTarget}h`;
-                    if (totalAllocated > totalTarget) {
-                        displayEl.classList.add('text-red-500');
-                    } else {
-                        displayEl.classList.remove('text-red-500');
-                    }
+                    displayEl.classList.toggle('text-red-500', totalAllocated > totalTarget);
                 }
             }
         });
 
-        setTimeout(() => { document.querySelectorAll('.progress-fill').forEach(fill => { fill.style.width = fill.getAttribute('data-width'); }); }, 300);
-        document.body.removeEventListener('click', handleBodyClick);
-        document.body.addEventListener('click', handleBodyClick);
-        document.body.removeEventListener('change', handleChecklistChange);
-        document.body.addEventListener('change', handleChecklistChange);
+        modal.dataset.listenerAttached = 'true';
     }
-
 
     function handleBodyClick(e) {
         if (e.target.closest('#reset-main-schedule-btn')) {
@@ -1355,6 +1355,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 saveAndClose();
             }
+            return;
+        }
+
+        if (e.target.closest('#save-journal-btn')) {
+            const todayString = new Date().toISOString().split('T')[0];
+            const journalText = document.getElementById('daily-journal-input').value;
+
+            if (!appData.dailyJournal) {
+                appData.dailyJournal = {};
+            }
+            appData.dailyJournal[todayString] = journalText;
+            saveDataToFirebase();
+            const saveBtn = document.getElementById('save-journal-btn');
+            saveBtn.textContent = 'Đã lưu! ✔️';
+            setTimeout(() => {
+                saveBtn.textContent = 'Lưu lại';
+            }, 2000);
+            return;
+        }
+
+        if (e.target.closest('#view-journal-history-btn')) {
+            openJournalHistoryModal();
             return;
         }
 
@@ -1491,20 +1513,58 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
         modal.classList.remove('hidden');
     }
+
+    function openJournalHistoryModal() {
+        currentEditingContext = 'journalHistory';
+        const modal = document.getElementById('edit-modal');
+        const modalBody = document.getElementById('modal-body');
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+
+        document.getElementById('modal-title').textContent = 'Lịch sử Ghi chú';
+
+        // Logic tạo lịch
+        const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+        let calendarHTML = '<div class="grid grid-cols-7 gap-2 text-center">';
+        // Thêm tên các ngày
+        dayNames.forEach(day => calendarHTML += `<div class="font-bold text-xs">${day}</div>`);
+
+        // Thêm các ô trống cho đầu tháng
+        for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+            calendarHTML += '<div></div>';
+        }
+
+        // Thêm các ngày trong tháng
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const hasEntry = appData.dailyJournal && appData.dailyJournal[dateString];
+            const isToday = day === today.getDate();
+
+            let cellClass = 'p-2 rounded-full cursor-pointer hover:bg-gray-200';
+            if (hasEntry) cellClass += ' bg-green-200 font-bold text-green-800 journal-day'; // Đánh dấu ngày có ghi chú
+            if (isToday) cellClass += ' ring-2 ring-purple-500';
+
+            calendarHTML += `<div class="${cellClass}" data-date="${dateString}">${day}</div>`;
+        }
+
+        calendarHTML += '</div>';
+
+        modalBody.innerHTML = calendarHTML + `<p class="text-xs text-center mt-4 text-gray-500">Ghi chú: Tính năng hiện chỉ hiển thị các ghi chú trong tháng hiện tại.</p>`;
+        modal.classList.remove('hidden');
+    }
+
     function saveNotesChanges() {
         const deadlinesText = document.getElementById('deadlines-notes').value;
         const resourcesText = document.getElementById('resources-notes').value;
-        const tipsText = document.getElementById('tips-notes').value;
 
-        appData.importantNotes.deadlines = deadlinesText.split('\n').map(item => item.trim()).filter(item => item);
-        appData.importantNotes.resources = resourcesText.split('\n').map(item => item.trim()).filter(item => item);
-        appData.importantNotes.tips = tipsText.split('\n').map(item => item.trim()).filter(item => item);
-
-        closeModal();
-        renderOtherSections();
-        renderTimeAllocationChart();
-        attachEventListeners();
-        saveDataToFirebase();
+        appData.importantNotes.deadlines = deadlinesText.split('\n').map(item => item.trim()).filter(Boolean);
+        appData.importantNotes.resources = resourcesText.split('\n').map(item => item.trim()).filter(Boolean);
+        // Đã xóa logic cho 'tips'
+        saveAndClose();
     }
     function openDetailedDayModal(dayKey) {
         currentEditingContext = 'detailedDay';
@@ -2713,4 +2773,3 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     console.log("Ứng dụng thời gian biểu đã được khởi chạy!");
 });
-
