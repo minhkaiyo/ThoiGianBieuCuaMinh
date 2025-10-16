@@ -2272,3 +2272,44 @@
         #help-content-container .help-prose strong {
             font-weight: 600;
         }
+
+
+        .journal-day {
+            background-color: #C6F6D5;
+            /* Màu xanh lá cây nhạt */
+            font-weight: bold;
+            color: #2F855A;
+            border: 1px solid #9AE6B4;
+        }
+
+        .journal-day:hover {
+            background-color: #9AE6B4 !important;
+        }
+
+        .whitespace-pre-wrap {
+            white-space: pre-wrap;
+            /* Giúp hiển thị xuống dòng trong nhật ký cũ */
+        }
+
+        .night-bg .glow-border {
+            border-color: rgba(168, 85, 247, 0.25);
+            /* Màu tím bán trong suốt */
+            box-shadow: 0 1px 0 rgba(192, 132, 252, 0.1);
+            /* Tạo vầng sáng nhẹ */
+        }
+
+        /* Hiệu ứng cho bảng chi tiết */
+        .night-bg .day-card {
+            border: 1px solid rgba(192, 132, 252, 0.2);
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.1);
+        }
+
+        .night-bg .day-card-header-glow {
+            border-color: rgba(139, 92, 246, 0.3);
+            /* Viền ngăn tiêu đề */
+        }
+
+        .night-bg .activity-item-glow {
+            border-color: rgba(255, 255, 255, 0.08);
+            /* Viền ngăn các mục */
+        }
