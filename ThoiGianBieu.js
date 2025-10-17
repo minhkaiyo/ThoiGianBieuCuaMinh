@@ -34,7 +34,6 @@ const defaultAppData = {
         { emoji: '🔁', title: 'Spaced Repetition', description: 'Ôn tập lại thông tin vào những khoảng thời gian ngày càng tăng để ghi nhớ lâu dài.' },
         { emoji: '✍️', title: 'Active Recall', description: 'Chủ động gợi lại thông tin từ trí nhớ thay vì chỉ đọc lại một cách thụ động.' }
     ],
-    studyStrategies: [],
     checklist: {
         lastDailyReset: null,
         lastWeeklyReset: null,
@@ -280,42 +279,48 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     async function loadUserData(user) {
-        const userDocRef = doc(db, 'userData', user.uid);
-        const docSnap = await getDoc(userDocRef);
-        let needsSave = false;
+    const userDocRef = doc(db, 'userData', user.uid);
+    const docSnap = await getDoc(userDocRef);
+    let needsSave = false;
 
-        if (docSnap.exists()) {
-            appData = { ...JSON.parse(JSON.stringify(defaultAppData)), ...docSnap.data() };
-            if (appData.weeklyChecklist) {
-                appData.checklist = {
-                    lastDailyReset: null, lastWeeklyReset: null,
-                    daily: [], weekly: [].concat(appData.weeklyChecklist.academic || [], appData.weeklyChecklist.lifeBalance || [])
-                };
-                delete appData.weeklyChecklist;
-                needsSave = true;
-            }
-        } else {
-            appData = JSON.parse(JSON.stringify(defaultAppData));
-            appData.userProfile.displayName = user.displayName || "Người dùng mới";
-            appData.userProfile.photoURL = user.photoURL || defaultAppData.userProfile.photoURL;
-            needsSave = true;
+    if (docSnap.exists()) {
+        appData = { ...JSON.parse(JSON.stringify(defaultAppData)), ...docSnap.data() };
+        
+        if (!appData.studyStrategies || appData.studyStrategies.length === 0) {
+            appData.studyStrategies = JSON.parse(JSON.stringify(defaultAppData.studyStrategies));
+            needsSave = true; 
         }
 
-        const today = new Date();
-        const todayString = today.toISOString().split('T')[0];
-        if (appData.checklist.lastDailyReset !== todayString) {
-            appData.checklist.daily.forEach(item => item.checked = false);
-            appData.checklist.lastDailyReset = todayString;
+        if (appData.weeklyChecklist) {
+            appData.checklist = {
+                lastDailyReset: null, lastWeeklyReset: null,
+                daily: [], weekly: [].concat(appData.weeklyChecklist.academic || [], appData.weeklyChecklist.lifeBalance || [])
+            };
+            delete appData.weeklyChecklist;
             needsSave = true;
         }
-        const isMonday = today.getDay() === 1;
-        if (isMonday && appData.checklist.lastWeeklyReset !== todayString) {
-            appData.checklist.weekly.forEach(item => item.checked = false);
-            appData.checklist.lastWeeklyReset = todayString;
-            needsSave = true;
-        }
+    } else {
+        appData = JSON.parse(JSON.stringify(defaultAppData));
+        appData.userProfile.displayName = user.displayName || "Người dùng mới";
+        appData.userProfile.photoURL = user.photoURL || defaultAppData.userProfile.photoURL;
+        needsSave = true;
+    }
 
-        if (needsSave) await saveDataToFirebase();
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    if (appData.checklist.lastDailyReset !== todayString) {
+        appData.checklist.daily.forEach(item => item.checked = false);
+        appData.checklist.lastDailyReset = todayString;
+        needsSave = true;
+    }
+    const isMonday = today.getDay() === 1;
+    if (isMonday && appData.checklist.lastWeeklyReset !== todayString) {
+        appData.checklist.weekly.forEach(item => item.checked = false);
+        appData.checklist.lastWeeklyReset = todayString;
+        needsSave = true;
+    }
+
+    if (needsSave) await saveDataToFirebase();
     }
     async function saveDataToFirebase() {
         const user = auth.currentUser;
@@ -521,9 +526,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const totalAllocatedHours = Object.values(appData.subjects).reduce((sum, s) => sum + (s.weeklyHours || 0), 0);
         const subjectsExist = Object.keys(appData.subjects).length > 0;
-        const strategiesExist = appData.studyStrategies.length > 0;
-        const notesExist = appData.importantNotes.deadlines.length > 0 || appData.importantNotes.resources.length > 0 || appData.importantNotes.tips.length > 0;
-
+        const strategiesExist = appData.studyStrategies && appData.studyStrategies.length > 0;
+        const notes = appData.importantNotes || { deadlines: [], resources: [] };
+        const notesExist = (notes.deadlines && notes.deadlines.length > 0) || (notes.resources && notes.resources.length > 0);
         const subjectsHTML = subjectsExist ? Object.values(appData.subjects).sort((a, b) => {
             const priorities = { critical: 3, high: 2, medium: 1, low: 0 };
             return priorities[b.priority] - priorities[a.priority];
@@ -582,6 +587,7 @@ document.addEventListener('DOMContentLoaded', function () {
           </div>
       `;
 
+      
         container.innerHTML = `
             <div class="grid md:grid-cols-2 gap-6 mb-8">
                 <div id="subjects-section" class="glass-card rounded-2xl p-6">
@@ -910,20 +916,25 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modal-title').textContent = 'Chỉnh sửa Chiến Lược Học Tập';
         const suggestedEmojis = ['🎯', '📝', '🔄', '📊', '🎨', '💡', '🧠', '✍️', '🗣️', '🧑‍🏫', '🔍', '📈'];
 
-        let strategiesHTML = appData.studyStrategies.map((strategy, index) => `
+        // === DÒNG SỬA LỖI QUAN TRỌNG NHẤT ===
+        // Kiểm tra nếu appData.studyStrategies không tồn tại thì dùng một mảng rỗng.
+        // Điều này ngăn không cho code bị crash khi người dùng chưa có dữ liệu.
+        const currentStrategies = appData.studyStrategies || [];
+
+        let strategiesHTML = currentStrategies.map((strategy, index) => `
             <div class="p-4 border-b" data-strategy-index="${index}">
                 <div class="flex justify-between items-center mb-3">
-                     <h4 class="font-bold text-lg text-purple-700">Chiến lược ${index + 1}</h4>
-                     <button class="delete-item-btn text-red-500 hover:text-red-700 font-bold text-xl" title="Xóa chiến lược này">🗑️</button>
+                    <h4 class="font-bold text-lg text-purple-700">Chiến lược ${index + 1}</h4>
+                    <button class="delete-item-btn text-red-500 hover:text-red-700 font-bold text-xl" title="Xóa chiến lược này">🗑️</button>
                 </div>
                 <div class="grid grid-cols-1 gap-4">
                     <div>
                         <label class="font-semibold text-sm">Biểu tượng (Emoji)</label>
                         <div class="flex items-center gap-2 mt-1">
-                             <input type="text" value="${strategy.emoji}" class="modal-input w-16 text-center strategy-emoji">
-                             <div class="flex-1 p-2 bg-gray-100 rounded-lg flex flex-wrap gap-2 emoji-picker">
+                            <input type="text" value="${strategy.emoji}" class="modal-input w-16 text-center strategy-emoji">
+                            <div class="flex-1 p-2 bg-gray-100 rounded-lg flex flex-wrap gap-2 emoji-picker">
                                 ${suggestedEmojis.map(emoji => `<span class="cursor-pointer p-1 rounded hover:bg-gray-300">${emoji}</span>`).join('')}
-                             </div>
+                            </div>
                         </div>
                     </div>
                     <div><label class="font-semibold text-sm">Tiêu đề</label><input type="text" value="${strategy.title}" class="modal-input strategy-title"></div>
@@ -1058,15 +1069,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         saveAndClose();
     }
-
     function saveNotesChanges() {
         const deadlinesText = document.getElementById('deadlines-notes').value;
         const resourcesText = document.getElementById('resources-notes').value;
-        const tipsText = document.getElementById('tips-notes').value;
+
+        // Đảm bảo appData.importantNotes là một object trước khi gán
+        if (!appData.importantNotes) {
+            appData.importantNotes = {};
+        }
 
         appData.importantNotes.deadlines = deadlinesText.split('\n').map(item => item.trim()).filter(Boolean);
         appData.importantNotes.resources = resourcesText.split('\n').map(item => item.trim()).filter(Boolean);
-        appData.importantNotes.tips = tipsText.split('\n').map(item => item.trim()).filter(Boolean);
+
+        // Đã xóa hoàn toàn logic cho 'tips' để đảm bảo an toàn
+        if (appData.importantNotes.tips) {
+            delete appData.importantNotes.tips;
+        }
+
         saveAndClose();
     }
 
@@ -1129,20 +1148,20 @@ document.addEventListener('DOMContentLoaded', function () {
         saveDataToFirebase();
     }
 
-    function saveScheduleChanges() {
-        const dayData = appData.schedule.dayData[currentEditingDayKey];
-        document.querySelectorAll('#modal-body [data-slot]').forEach(slotEl => {
-            const slotKey = slotEl.dataset.slot;
-            if (slotEl.querySelector('.time-input')) appData.schedule.timeConfig[slotKey].time = slotEl.querySelector('.time-input').value;
-            const activityType = slotEl.querySelector('.activity-type-select').value;
-            const notes = slotEl.querySelector('.notes-input').value;
-            const subjects = Array.from(slotEl.querySelectorAll('.subject-select')).map(select => select.value).filter(value => value !== '');
-            dayData[slotKey] = [{ type: activityType, subjects: subjects, notes: notes }];
-        });
-        closeModal();
-        renderSchedule();
-        saveDataToFirebase();
-    }
+    // function saveScheduleChanges() {
+    //     const dayData = appData.schedule.dayData[currentEditingDayKey];
+    //     document.querySelectorAll('#modal-body [data-slot]').forEach(slotEl => {
+    //         const slotKey = slotEl.dataset.slot;
+    //         if (slotEl.querySelector('.time-input')) appData.schedule.timeConfig[slotKey].time = slotEl.querySelector('.time-input').value;
+    //         const activityType = slotEl.querySelector('.activity-type-select').value;
+    //         const notes = slotEl.querySelector('.notes-input').value;
+    //         const subjects = Array.from(slotEl.querySelectorAll('.subject-select')).map(select => select.value).filter(value => value !== '');
+    //         dayData[slotKey] = [{ type: activityType, subjects: subjects, notes: notes }];
+    //     });
+    //     closeModal();
+    //     renderSchedule();
+    //     saveDataToFirebase();
+    // }
 
 
     async function fetchAndDisplayQuote() {
@@ -1490,24 +1509,20 @@ document.addEventListener('DOMContentLoaded', function () {
         const modalBody = document.getElementById('modal-body');
         document.getElementById('modal-title').textContent = 'Chỉnh sửa Lưu Ý Quan Trọng';
 
-        const { deadlines, resources, tips } = appData.importantNotes;
+        // Chỉ lấy deadlines và resources, không còn tips
+        const { deadlines, resources } = appData.importantNotes;
 
         modalBody.innerHTML = `
             <div class="p-4 space-y-4">
                 <div>
                     <label for="deadlines-notes" class="font-bold text-lg text-red-700">🚨 Deadline Gần</label>
                     <p class="text-xs text-gray-500 mb-2">Mỗi mục trên một dòng.</p>
-                    <textarea id="deadlines-notes" class="modal-input h-24">${deadlines.join('\n')}</textarea>
+                    <textarea id="deadlines-notes" class="modal-input h-24">${(deadlines || []).join('\n')}</textarea>
                 </div>
                 <div>
                     <label for="resources-notes" class="font-bold text-lg text-blue-700">📚 Tài Nguyên Học</label>
                     <p class="text-xs text-gray-500 mb-2">Mỗi mục trên một dòng.</p>
-                    <textarea id="resources-notes" class="modal-input h-24">${resources.join('\n')}</textarea>
-                </div>
-                <div>
-                    <label for="tips-notes" class="font-bold text-lg text-green-700">💪 Tips Hiệu Quả</label>
-                    <p class="text-xs text-gray-500 mb-2">Mỗi mục trên một dòng.</p>
-                    <textarea id="tips-notes" class="modal-input h-24">${tips.join('\n')}</textarea>
+                    <textarea id="resources-notes" class="modal-input h-24">${(resources || []).join('\n')}</textarea>
                 </div>
             </div>
         `;
@@ -1981,7 +1996,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const themePanel = document.getElementById('theme-settings-panel');
         const themeChoices = document.querySelector('.theme-choices');
         const themeResetBtn = document.getElementById('theme-reset-btn');
-        let panelHideTimeout; // Biến để quản lý độ trễ
+        let panelHideTimeout;
+        if (themeTrigger.dataset.listenerAttached) {
+            loadSettings();
+            return;
+        }
 
         function applyBackground(theme) {
             if (theme) {
@@ -2001,33 +2020,27 @@ document.addEventListener('DOMContentLoaded', function () {
             applyBackground(savedTheme);
         }
 
-        // --- BẮT ĐẦU PHẦN SỬA LỖI ---
-        // Chỉ giữ lại MỘT lần gán sự kiện click
+
         themeTrigger?.addEventListener('click', () => {
             themePanel?.classList.toggle('visible');
         });
 
-        // Tự động đóng khi chuột rời khỏi bảng (giảm thời gian chờ xuống 500ms cho mượt hơn)
         themePanel?.addEventListener('mouseleave', () => {
             panelHideTimeout = setTimeout(() => {
                 themePanel.classList.remove('visible');
             }, 500);
         });
 
-        // Nếu chuột quay lại bảng, hủy việc đóng
         themePanel?.addEventListener('mouseenter', () => {
             clearTimeout(panelHideTimeout);
         });
 
-        // Đóng bảng khi nhấp chuột ra ngoài
         document.addEventListener('click', (e) => {
             if (themePanel?.classList.contains('visible') && !themePanel.contains(e.target) && !themeTrigger.contains(e.target)) {
                 themePanel.classList.remove('visible');
             }
         });
 
-        // *** ĐÃ XÓA ĐOẠN GÁN SỰ KIỆN BỊ LẶP LẠI Ở ĐÂY ***
-        // --- KẾT THÚC PHẦN SỬA LỖI ---
 
         if (themeChoices) {
             themeChoices.addEventListener('click', (e) => {
@@ -2046,6 +2059,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadSettings();
             });
         }
+        themeTrigger.dataset.listenerAttached = 'true';
 
         loadSettings();
     }
