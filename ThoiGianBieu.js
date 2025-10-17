@@ -3,6 +3,7 @@ import { auth, db } from './firebase-config.js';
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
+// BẮT ĐẦU ĐOẠN CODE THAY THẾ
 const defaultAppData = {
     userProfile: {
         displayName: "Người dùng mới",
@@ -43,7 +44,7 @@ const defaultAppData = {
     importantNotes: {
         deadlines: [],
         resources: [],
-        // tips: []
+        tips: [] 
     },
     dailyJournal: {},
     placeholders: {
@@ -52,6 +53,7 @@ const defaultAppData = {
         notes: "Nhấn nút ✏️ để thêm các ghi chú quan trọng.",
     }
 };
+// KẾT THÚC ĐOẠN CODE THAY THẾ
 
 let appData = JSON.parse(JSON.stringify(defaultAppData));
 
@@ -279,48 +281,48 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     async function loadUserData(user) {
-    const userDocRef = doc(db, 'userData', user.uid);
-    const docSnap = await getDoc(userDocRef);
-    let needsSave = false;
+        const userDocRef = doc(db, 'userData', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        let needsSave = false;
 
-    if (docSnap.exists()) {
-        appData = { ...JSON.parse(JSON.stringify(defaultAppData)), ...docSnap.data() };
-        
-        if (!appData.studyStrategies || appData.studyStrategies.length === 0) {
-            appData.studyStrategies = JSON.parse(JSON.stringify(defaultAppData.studyStrategies));
-            needsSave = true; 
-        }
+        if (docSnap.exists()) {
+            appData = { ...JSON.parse(JSON.stringify(defaultAppData)), ...docSnap.data() };
 
-        if (appData.weeklyChecklist) {
-            appData.checklist = {
-                lastDailyReset: null, lastWeeklyReset: null,
-                daily: [], weekly: [].concat(appData.weeklyChecklist.academic || [], appData.weeklyChecklist.lifeBalance || [])
-            };
-            delete appData.weeklyChecklist;
+            if (!appData.studyStrategies || appData.studyStrategies.length === 0) {
+                appData.studyStrategies = JSON.parse(JSON.stringify(defaultAppData.studyStrategies));
+                needsSave = true;
+            }
+
+            if (appData.weeklyChecklist) {
+                appData.checklist = {
+                    lastDailyReset: null, lastWeeklyReset: null,
+                    daily: [], weekly: [].concat(appData.weeklyChecklist.academic || [], appData.weeklyChecklist.lifeBalance || [])
+                };
+                delete appData.weeklyChecklist;
+                needsSave = true;
+            }
+        } else {
+            appData = JSON.parse(JSON.stringify(defaultAppData));
+            appData.userProfile.displayName = user.displayName || "Người dùng mới";
+            appData.userProfile.photoURL = user.photoURL || defaultAppData.userProfile.photoURL;
             needsSave = true;
         }
-    } else {
-        appData = JSON.parse(JSON.stringify(defaultAppData));
-        appData.userProfile.displayName = user.displayName || "Người dùng mới";
-        appData.userProfile.photoURL = user.photoURL || defaultAppData.userProfile.photoURL;
-        needsSave = true;
-    }
 
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    if (appData.checklist.lastDailyReset !== todayString) {
-        appData.checklist.daily.forEach(item => item.checked = false);
-        appData.checklist.lastDailyReset = todayString;
-        needsSave = true;
-    }
-    const isMonday = today.getDay() === 1;
-    if (isMonday && appData.checklist.lastWeeklyReset !== todayString) {
-        appData.checklist.weekly.forEach(item => item.checked = false);
-        appData.checklist.lastWeeklyReset = todayString;
-        needsSave = true;
-    }
+        const today = new Date();
+        const todayString = today.toISOString().split('T')[0];
+        if (appData.checklist.lastDailyReset !== todayString) {
+            appData.checklist.daily.forEach(item => item.checked = false);
+            appData.checklist.lastDailyReset = todayString;
+            needsSave = true;
+        }
+        const isMonday = today.getDay() === 1;
+        if (isMonday && appData.checklist.lastWeeklyReset !== todayString) {
+            appData.checklist.weekly.forEach(item => item.checked = false);
+            appData.checklist.lastWeeklyReset = todayString;
+            needsSave = true;
+        }
 
-    if (needsSave) await saveDataToFirebase();
+        if (needsSave) await saveDataToFirebase();
     }
     async function saveDataToFirebase() {
         const user = auth.currentUser;
@@ -527,8 +529,19 @@ document.addEventListener('DOMContentLoaded', function () {
         const totalAllocatedHours = Object.values(appData.subjects).reduce((sum, s) => sum + (s.weeklyHours || 0), 0);
         const subjectsExist = Object.keys(appData.subjects).length > 0;
         const strategiesExist = appData.studyStrategies && appData.studyStrategies.length > 0;
-        const notes = appData.importantNotes || { deadlines: [], resources: [] };
-        const notesExist = (notes.deadlines && notes.deadlines.length > 0) || (notes.resources && notes.resources.length > 0);
+        
+        // Luôn đảm bảo `notes` là một object hợp lệ
+        const notes = appData.importantNotes || {};
+
+
+        const deadlinesHTML = (notes.deadlines && notes.deadlines.length > 0)
+            ? `<ul>${notes.deadlines.map(note => `<li>• ${note}</li>`).join('')}</ul>`
+            : `<p class="text-xs text-gray-500 italic mt-2">Chưa có deadline nào. Nhấn nút ✏️ ở trên để thêm nhé.</p>`;
+
+        const resourcesHTML = (notes.resources && notes.resources.length > 0)
+            ? `<ul>${notes.resources.map(note => `<li>• ${note}</li>`).join('')}</ul>`
+            : `<p class="text-xs text-gray-500 italic mt-2">Chưa có tài nguyên nào. Nhấn nút ✏️ ở trên để thêm nhé.</p>`;
+
         const subjectsHTML = subjectsExist ? Object.values(appData.subjects).sort((a, b) => {
             const priorities = { critical: 3, high: 2, medium: 1, low: 0 };
             return priorities[b.priority] - priorities[a.priority];
@@ -560,8 +573,6 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="flex items-start gap-3"><span class="text-lg mt-1">${s.emoji}</span><p><strong>${s.title}:</strong> ${s.description}</p></div>
         `).join('') : `<p class="placeholder-text">${appData.placeholders.strategies}</p>`;
 
-        const deadlinesHTML = appData.importantNotes.deadlines.length > 0 ? appData.importantNotes.deadlines.map(note => `<li>• ${note}</li>`).join('') : '<li>Không có</li>';
-        const resourcesHTML = appData.importantNotes.resources.length > 0 ? appData.importantNotes.resources.map(note => `<li>• ${note}</li>`).join('') : '<li>Không có</li>';
         const todayString = new Date().toISOString().split('T')[0];
         const todaysJournal = appData.dailyJournal && appData.dailyJournal[todayString] ? appData.dailyJournal[todayString] : '';
 
@@ -577,17 +588,15 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <textarea id="daily-journal-input" class="modal-input flex-grow text-sm p-2 text-gray-800" placeholder="Hôm nay của bạn thế nào?">${todaysJournal}</textarea>
             <button id="save-journal-btn" class="mt-2 w-full px-4 py-1.5 bg-green-200 text-gray-800 rounded-lg hover:bg-green-300 transition font-semibold text-sm">Lưu lại</button>
-        </div>
-      `;
-        const notesContent = `
-          <div class="grid md:grid-cols-3 gap-4">
-              <div class="bg-red-500/10 border-l-4 border-red-500 p-4 rounded"><h4 class="font-bold text-red-700 mb-2">🚨 Deadline Gần</h4><ul class="text-sm space-y-1">${deadlinesHTML}</ul></div>
-              <div class="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded"><h4 class="font-bold text-blue-700 mb-2">📚 Tài Nguyên Học</h4><ul class="text-sm space-y-1">${resourcesHTML}</ul></div>
-              <div class="md:col-span-1">${journalHTML}</div>
-          </div>
-      `;
+        </div>`;
 
-      
+        const notesContent = `
+        <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-red-500/10 border-l-4 border-red-500 p-4 rounded"><h4 class="font-bold text-red-700 mb-2">🚨 Deadline Gần</h4><div class="text-sm space-y-1">${deadlinesHTML}</div></div>
+            <div class="bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded"><h4 class="font-bold text-blue-700 mb-2">📚 Tài Nguyên Học</h4><div class="text-sm space-y-1">${resourcesHTML}</div></div>
+            <div class="md:col-span-1">${journalHTML}</div>
+        </div>`;
+
         container.innerHTML = `
             <div class="grid md:grid-cols-2 gap-6 mb-8">
                 <div id="subjects-section" class="glass-card rounded-2xl p-6">
@@ -615,7 +624,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <h3 class="heading-font text-xl font-bold">📌 Lưu Ý Quan Trọng</h3>
                         <button class="edit-btn text-xl opacity-70 hover:opacity-100" data-modal="notes" title="Chỉnh sửa lưu ý">✏️</button>
                     </div>
-                    ${notesExist ? notesContent : `<p class="placeholder-text">${appData.placeholders.notes}</p>`}
+                    ${notesContent} 
                 </div>
                 <div id="checklist-card" class="glass-card rounded-2xl p-6 md:col-span-2">
                     <div class="flex justify-between items-center mb-2">
@@ -1028,8 +1037,6 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('add-new-strategy-btn').parentElement.insertAdjacentHTML('beforebegin', newFormHTML);
     }
 
-    // ĐOẠN MÃ MỚI để thay thế cho 7 hàm save...Changes cũ
-
     function saveSubjectChanges() {
         const newSubjects = {};
         document.querySelectorAll('#modal-body [data-subject-key]').forEach(subjectEl => {
@@ -1051,15 +1058,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 
-    function saveDatesChanges() {
-        const newStartDate = document.getElementById('start-date-input').value;
-        const newGoalDate = document.getElementById('goal-date-input').value;
-        if (newStartDate && newGoalDate) {
-            appData.config.startDate = newStartDate;
-            appData.config.goalDate = newGoalDate;
-        }
-        saveAndClose();
-    }
+    // function saveDatesChanges() {
+    //     const newStartDate = document.getElementById('start-date-input').value;
+    //     const newGoalDate = document.getElementById('goal-date-input').value;
+    //     if (newStartDate && newGoalDate) {
+    //         appData.config.startDate = newStartDate;
+    //         appData.config.goalDate = newGoalDate;
+    //     }
+    //     saveAndClose();
+    // }
 
     function saveGoalChanges() {
         const modal = document.getElementById('edit-modal');
@@ -1572,15 +1579,15 @@ document.addEventListener('DOMContentLoaded', function () {
         modal.classList.remove('hidden');
     }
 
-    function saveNotesChanges() {
-        const deadlinesText = document.getElementById('deadlines-notes').value;
-        const resourcesText = document.getElementById('resources-notes').value;
+    // function saveNotesChanges() {
+    //     const deadlinesText = document.getElementById('deadlines-notes').value;
+    //     const resourcesText = document.getElementById('resources-notes').value;
 
-        appData.importantNotes.deadlines = deadlinesText.split('\n').map(item => item.trim()).filter(Boolean);
-        appData.importantNotes.resources = resourcesText.split('\n').map(item => item.trim()).filter(Boolean);
-        // Đã xóa logic cho 'tips'
-        saveAndClose();
-    }
+    //     appData.importantNotes.deadlines = deadlinesText.split('\n').map(item => item.trim()).filter(Boolean);
+    //     appData.importantNotes.resources = resourcesText.split('\n').map(item => item.trim()).filter(Boolean);
+    //     // Đã xóa logic cho 'tips'
+    //     saveAndClose();
+    // }
     function openDetailedDayModal(dayKey) {
         currentEditingContext = 'detailedDay';
         currentEditingDayKey = dayKey;
@@ -1800,17 +1807,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function saveGoalChanges() {
-        const modal = document.getElementById('edit-modal');
-        const selectedGoal = modal.dataset.selectedGoal;
+    // function saveGoalChanges() {
+    //     const modal = document.getElementById('edit-modal');
+    //     const selectedGoal = modal.dataset.selectedGoal;
 
-        if (selectedGoal) {
-            appData.config.goal = selectedGoal;
-            saveDataToFirebase();
-            renderHeaderAndStats();
-        }
-        closeModal();
-    }
+    //     if (selectedGoal) {
+    //         appData.config.goal = selectedGoal;
+    //         saveDataToFirebase();
+    //         renderHeaderAndStats();
+    //     }
+    //     closeModal();
+    // }
 
     function openModal(context, title, content) {
         currentEditingContext = context;
